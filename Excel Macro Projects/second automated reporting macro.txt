@@ -1,0 +1,366 @@
+Sub sku_benchmarking()
+
+ActiveWindow.FreezePanes = False
+Application.ScreenUpdating = False
+ActiveSheet.Range("A:AZ").FormatConditions.Delete
+
+lastRow = Range("A1000000").End(xlUp).Row
+
+
+'remove NA rows
+For i = lastRow To 1 Step -1
+    If Cells(i, 15) = "NA" Then
+        Rows(i).EntireRow.Delete
+    End If
+    
+Next i
+
+lastRow = Range("A1000000").End(xlUp).Row
+
+'move columns around
+Columns("C:C").Cut
+Columns("B:B").Insert Shift:=xlToRight
+Columns("F:F").Delete Shift:=xlToLeft
+Columns("N:N").Cut
+Columns("G:G").Insert Shift:=xlToRight
+Columns("S:S").Cut
+Columns("H:H").Insert Shift:=xlToRight
+Columns("P:R").Cut
+Columns("I:I").Insert Shift:=xlToRight
+Columns("L:L").Delete Shift:=xlToLeft
+Columns("O:Q").Delete Shift:=xlToLeft
+Columns("O:P").Insert Shift:=xlToRight, CopyOrigin:=xlFormatFromLeftOrAbove
+
+
+
+'insert savings calculations
+Cells(1, 15) = "Annualized savings at 10th percentile market price"
+Cells(1, 16) = "Annualized savings at 25th percentile market price"
+Cells(1, 17) = "Annualized Savings by Purchasing All SKU's at the Minimum Price Paid"
+For i = 2 To lastRow
+    Cells(i, 15) = "=IF((j" & i & "-l" & i & ")>0,(j" & i & "-l" & i & ")*G" & i & ",0)"
+    Cells(i, 16) = "=IF((j" & i & "-m" & i & ")>0,(j" & i & "-m" & i & ")*G" & i & ",0)"
+    If Cells(i, 17) < 1 Then
+        Cells(i, 17) = 0
+    End If
+Next i
+
+'forgot to delete a column and i am too lazy to change the previous few lines of code
+Columns("A:A").Delete Shift:=xlToLeft
+
+'formatting
+Rows("1:1").RowHeight = 60
+Range("A1") = "Group"
+Range("B1") = "Type"
+Range("c1") = "Brand"
+Range("d1") = "Product"
+Range("e1") = "Catalog Number"
+Range("f1") = "Annual Eaches Purchased"
+Range("G1") = "Total Spend"
+Range("h1") = "Minimum Price Per Each"
+Range("i1") = "Average Price Per Each"
+Range("j1") = "Average Price Percentile"
+Range("k1") = "10th Percentile Price Per Each"
+Range("l1") = "25th Percentile Price Per Each"
+Range("m1") = "50th Percentile Price Per Each"
+
+Rows("1:1").HorizontalAlignment = xlCenter
+Rows("1:1").VerticalAlignment = xlCenter
+Rows("1:1").WrapText = True
+Rows("1:1").Font.Bold = True
+
+Columns("A:P").EntireColumn.AutoFit
+Columns("F:M").ColumnWidth = 15
+Columns("N:P").ColumnWidth = 22
+
+Range(Range("E2"), Range("E2").End(xlDown)).HorizontalAlignment = xlLeft
+
+Range(Range("F2"), Cells(lastRow, 16)).HorizontalAlignment = xlCenter
+
+Columns("G:I").NumberFormat = "$#,##0"
+Columns("K:P").NumberFormat = "$#,##0"
+Columns("J:J").NumberFormat = "#0%"
+
+'sort
+Columns("A:P").Sort key1:=Range("N2"), order1:=xlDescending, Header:=xlYes
+
+Rows("1:1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+Range("F1:J1").Merge
+
+Dim headertext As Variant
+headertext = InputBox("Enter your provider name")
+Range("F1").Value = headertext
+
+Range("K1:M1").Merge
+Range("K1:M1").Value = "Market"
+
+Range("N1:P1").Merge
+Range("N1:P1").Value = "Savings"
+
+Range("F1:P1").Font.Bold = True
+Range("F1:P1").Font.Size = 14
+Range("F1:P1").HorizontalAlignment = xlCenter
+
+Range("a2:e2").Interior.Color = 15921906
+Range("f1:j2").Interior.Color = 14277081
+Range("k1:M2").Interior.Color = 12566463
+Range("N1:p2").Interior.Color = 6299648
+Range("N1:P2").Font.Color = vbWhite
+
+'BORDERS
+Range("A2:P2,F1:P1").Select
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    
+Range(Cells(3, 1), Cells(lastRow + 1, 16)).Select
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    
+    
+'white border
+    Range("N2").Select
+    Selection.Borders(xlDiagonalDown).LineStyle = xlNone
+    Selection.Borders(xlDiagonalUp).LineStyle = xlNone
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.Borders(xlInsideVertical).LineStyle = xlNone
+    Selection.Borders(xlInsideHorizontal).LineStyle = xlNone
+    Range("O2").Select
+    Selection.Borders(xlDiagonalDown).LineStyle = xlNone
+    Selection.Borders(xlDiagonalUp).LineStyle = xlNone
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.Borders(xlInsideVertical).LineStyle = xlNone
+    Selection.Borders(xlInsideHorizontal).LineStyle = xlNone
+    Range("O2").Select
+    Selection.Borders(xlDiagonalDown).LineStyle = xlNone
+    Selection.Borders(xlDiagonalUp).LineStyle = xlNone
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.Borders(xlInsideVertical).LineStyle = xlNone
+    Selection.Borders(xlInsideHorizontal).LineStyle = xlNone
+    Range("O2").Select
+    Selection.Borders(xlDiagonalDown).LineStyle = xlNone
+    Selection.Borders(xlDiagonalUp).LineStyle = xlNone
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.Borders(xlInsideVertical).LineStyle = xlNone
+    Selection.Borders(xlInsideHorizontal).LineStyle = xlNone
+    Range("N1:P1").Select
+    Selection.Borders(xlDiagonalDown).LineStyle = xlNone
+    Selection.Borders(xlDiagonalUp).LineStyle = xlNone
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.Borders(xlInsideHorizontal).LineStyle = xlNone
+
+Rows("1:1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+Rows("1:1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+Rows("1:1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+
+Range("F6").Select
+ActiveWindow.FreezePanes = True
+
+Range("A2:E3").Merge
+Dim headertext2 As Variant
+headertext2 = InputBox("Enter your opportunity name")
+Range("A2:E3").Value = headertext2
+Range("A2:E3").HorizontalAlignment = xlRight
+Range("A2:E3").Font.Size = 16
+Range("A2:E3").Font.Bold = True
+Range("A2:E3").VerticalAlignment = xlCenter
+
+Dim myValue As Variant
+myValue = InputBox("Enter your username")
+Dim path As String
+path = "C:\Users\" & myValue & "\Google Drive\PipelinePRO\Analytics Internal Projects\procuredimage_dontdelete.png"
+ActiveSheet.Shapes.AddPicture path, False, True, 1, 1, -1, -1
+
+ActiveWindow.DisplayGridlines = False
+Application.ScreenUpdating = True
+
+
+End Sub

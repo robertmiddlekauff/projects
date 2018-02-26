@@ -1,0 +1,116 @@
+
+----- update blank physicians----------------
+update emrdata set surgeon = 'No Surgeon Listed' where surgeon = '' and pi_report_id = OPPORTUNITYIDVARIABLE;
+
+----- update null prices to include most recent or price and then po data price--------------------
+
+update emrdata set price_per_each = a.most_recent_price from
+  (SELECT *,
+   first_value(price_per_each) OVER(PARTITION BY manufacturer_catalog_number_stripped ORDER BY surgery_date DESC  rows between unbounded preceding and current row) as most_recent_price
+   FROM emrdata where price_per_each is not null and pi_report_id = OPPORTUNITYIDVARIABLE) a
+where a.manufacturer_catalog_number_stripped = emrdata.manufacturer_catalog_number_stripped
+and emrdata.price_per_each is null
+and emrdata.pi_report_id = OPPORTUNITYIDVARIABLE;
+
+update emrdata set price_per_each =
+a.most_recent_price
+from
+  (SELECT provider_id,manufacturer_catalog_number_stripped,vendor_catalog_number_stripped,
+     first_value(price_per_each) OVER(PARTITION BY manufacturer_catalog_number_stripped,vendor_catalog_number_stripped ORDER BY po_date DESC  rows between unbounded preceding and current row) AS most_recent_price
+   FROM db_15582_public.po_data where provider_id = PROVIDERID and price_per_each is not null order by vendor_catalog_number_stripped) a
+where (emrdata.manufacturer_catalog_number_stripped = a.manufacturer_catalog_number_stripped or
+        emrdata.manufacturer_catalog_number_stripped = a.vendor_catalog_number_stripped)
+and a.provider_id=emrdata.provider_id
+and pi_report_id=OPPORTUNITYIDVARIABLE
+and emrdata.price_per_each is null ;
+
+---update extended cost
+
+update emrdata set extended_cost = eaches * price_per_each
+where extended_cost is NULL
+and price_per_each is not NULL
+    and eaches is not null
+and pi_report_id = OPPORTUNITYIDVARIABLE;
+
+--update extended cost if eaches is null
+
+update emrdata set extended_cost = eaches_wasted * price_per_each
+where extended_cost is NULL
+and price_per_each is not NULL
+and eaches is null
+and eaches_wasted is not null
+and pi_report_id = OPPORTUNITYIDVARIABLE;
+
+--ignore anything else
+update emrdata set exclude_from_report = 1 where extended_cost is null or price_per_each is null;
+
+-----update procedureName to be drg (optional based on the project)
+/*update emrdata set procedureName = drg.drg from drg where emrdata.drg = drg.id
+and pi_report_id = OPPORTUNITYIDVARIABLE;*/
+
+-----analyze rest of data. exclude anything if necessary using below code
+--update emrdata set exclude_from_report = 1 where pi_report_id = OPPORTUNITYIDVARIABLE AND ID IN (123,123)....
+
+--------------------------------------------------------------------------------------------------------------------------
+
+---- update filter column to include 20% of most common procedures once you have cleaned the data
+update emrdata set top_procedures = 'High volume procedures'
+WHERE
+procedureName in (
+  SELECT procedureName
+  FROM
+    (
+
+      SELECT
+        procedureName,
+        count(DISTINCT log_id),
+        percent_rank()
+        OVER (
+          ORDER BY count ) percent_rank
+      FROM emrdata
+      WHERE pi_report_id = OPPORTUNITYIDVARIABLE AND exclude_from_report = 0
+      GROUP BY procedureName
+      ORDER BY count DESC
+
+    ) a
+--can edit this
+  WHERE percent_rank > .75
+)
+and pi_report_id = OPPORTUNITYIDVARIABLE and exclude_from_report = 0
+;
+
+--update rest to be low volume
+update emrdata set top_procedures = 'Low volume procedures' where pi_report_id=OPPORTUNITYIDVARIABLE and top_procedures='';
+
+/*---update null to be high volume (defaults to low volume for null drg)
+update emrdata set top_procedures = 'High volume procedures' where pi_report_id=OPPORTUNITYIDVARIABLE and drg is null;*/
+
+
+---do the same for doctors
+update emrdata set top_doctors = 'High usage doctors'
+WHERE
+surgeon in (
+  SELECT surgeon
+  FROM
+    (
+
+      SELECT
+        surgeon,
+        count(DISTINCT log_id) doc_count,
+        percent_rank()
+        OVER (
+          ORDER BY doc_count ) percent_rank
+      FROM emrdata
+      WHERE pi_report_id = OPPORTUNITYIDVARIABLE AND exclude_from_report = 0
+      GROUP BY surgeon
+      ORDER BY doc_count DESC
+
+    ) a
+  WHERE percent_rank > .75
+)
+and pi_report_id = OPPORTUNITYIDVARIABLE and exclude_from_report = 0
+;
+
+--update rest to be low usage
+update emrdata set top_doctors = 'Low usage doctors' where pi_report_id=OPPORTUNITYIDVARIABLE and top_doctors='';
+

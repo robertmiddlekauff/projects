@@ -1,0 +1,1303 @@
+Sub product_selection2()
+
+
+Worksheets("Data Summary").Activate
+
+ActiveWindow.FreezePanes = False
+
+Application.ScreenUpdating = False
+ActiveSheet.Range("A:AZ").FormatConditions.Delete
+
+
+ Dim lastCellRow As Integer
+ 
+ Set CurrentSheet = ThisWorkbook.Sheets("TypeGroup, brand, product")
+ 
+ Dim lastRow As Long
+
+lastRow = Range("C" & Rows.Count).End(xlUp).Row
+
+Cells.UnMerge
+
+For i = 2 To lastRow
+    If (Cells(i, 3) = "" And Cells(i, 2) = "") Then
+        Cells(i, 14) = "group"
+    ElseIf Cells(i, 3) = "" Then
+        Cells(i, 14) = "type"
+    ElseIf Cells(i, 4) = "" Then
+        Cells(i, 14) = "brand"
+    Else: Cells(i, 14) = False
+    End If
+
+Next i
+
+
+
+'shading for brand, group, type
+
+For i = 2 To lastRow
+    If Cells(i, 14) = "group" Then
+        Set Cell = Sheets("Data Summary").Range("C2")
+        Cells(i, 5).Copy
+        With Range(Cells(i, 2), Cells(i, 31)).Interior
+            .Pattern = xlSolid
+            .PatternColorIndex = xlAutomatic
+            .Color = 14935011
+            .TintAndShade = 0
+            .PatternTintAndShade = 0
+        End With
+
+    End If
+    If Cells(i, 14) = "type" Then
+        With Range(Cells(i, 2), Cells(i, 31)).Interior
+            .Pattern = xlSolid
+            .PatternColorIndex = xlAutomatic
+            .Color = 16248281
+            .TintAndShade = 0
+            .PatternTintAndShade = 0
+        End With
+        
+    End If
+    If Cells(i, 14) = "brand" Then
+        With Range(Cells(i, 3), Cells(i, 31)).Interior
+            .Pattern = xlSolid
+            .PatternColorIndex = xlAutomatic
+            .ThemeColor = xlThemeColorAccent3
+            .TintAndShade = 0.799981688894314
+            .PatternTintAndShade = 0
+        End With
+    End If
+        
+Next i
+
+Dim standardization As Variant
+standardization = InputBox("What vendor do you want to standardize to?")
+
+For i = 2 To lastRow + 1
+    If (Cells(i, 14) = "type" Or Cells(i, 14) = "group") Then
+        Cells(i, 32) = "group/type"
+    ElseIf Cells(i, 14) = "brand" Then
+        Cells(i, 32) = Cells(i, 3)
+    ElseIf Cells(i, 14) = False Then
+        Cells(i, 32) = Cells(i - 1, 32)
+    End If
+    
+Next i
+
+For i = 2 To lastRow
+    If Cells(i, 14) = False Then
+        Cells(i, 14).Copy Cells(i, 15)
+        Cells(i, 21) = "=T" & i & "*P" & i
+        Cells(i, 26) = "=Y" & i & "*G" & i
+        Cells(i, 27) = "=Y" & i & "*J" & i
+        Cells(i, 30) = "=AC" & i & "*G" & i
+        Cells(i, 31) = "=AC" & i & "*J" & i
+        Cells(i, 21).Font.Color = vbWhite
+        Cells(i, 26).Font.Color = vbWhite
+        Cells(i, 27).Font.Color = vbWhite
+        Cells(i, 30).Font.Color = vbWhite
+        Cells(i, 31).Font.Color = vbWhite
+    End If
+    If (Cells(i, 14) = False And Cells(i, 32) <> standardization) Then
+        Cells(i, 31) = "=AC" & i & "*G" & i
+    End If
+    If (Cells(i, 14) = False And Cells(i, 10) = "") Then
+        Cells(i, 10) = Cells(i, 7)
+    End If
+Next i
+
+For i = 2 To lastRow
+    If Cells(i, 14) = False Then
+        Cells(i, 7).Copy Cells(i, 16)
+    End If
+
+Next i
+
+Dim productStart As Long, productEnd As Long
+
+Dim startRow As Long, endRow As Long, countStart As Long, countEnd As Long, minform As String
+Dim countEnd2 As Long, countStart2 As Long, divider As Long, counter As Long
+
+For i = 2 To lastRow
+    If (Cells(i, 14) = False) And (Cells(i - 1, 14) = "type") Then
+        productStart = i
+        productEnd = i
+    End If
+        If (Cells(i, 14) = False) And (Cells(i - 1, 14) <> "type") Then
+        productEnd = i
+    End If
+    If ((Cells(i, 14) = False) And ((Cells(i + 1, 14) = "type") Or (Cells(i + 1, 14) = "group"))) Then
+    End If
+Next i
+
+startRow = 2
+For i = 2 To lastRow
+    If (Cells(i, 14) = False) And (Cells(i - 1, 14) <> False) Then
+        startRow = i
+        endRow = i
+    End If
+    If (Cells(i, 14) = False) And (Cells(i - 1, 14) = False) Then
+        endRow = i
+    End If
+    If (Cells(i, 14) = False) And (Cells(i + 1, 14) <> False) Then
+        Rows(startRow & ":" & endRow).Group
+    End If
+Next i
+
+For i = 3 To lastRow
+    If i = 3 Then
+        Cells(i, 17).Formula = 1
+    End If
+    If Cells(i, 14) = "type" Then
+        Cells(i, 17) = Cells(i - 1, 17) + 1
+    End If
+    If Cells(i, 14) <> "type" Then
+        Cells(i, 17) = Cells(i - 1, 17)
+    End If
+
+Next i
+
+Cells(lastRow + 1, 17) = Cells(lastRow, 17) + 1
+
+countStart = 0
+counter = 0
+countEnd = 0
+minform = ""
+
+
+For i = 2 To lastRow + 1
+    If (Cells(i, 14) = "type" Or Cells(i, 14) = "group") Then
+        Cells(i, 32) = "group/type"
+    ElseIf Cells(i, 14) = "brand" Then
+        Cells(i, 32) = Cells(i, 3)
+    ElseIf Cells(i, 14) = False Then
+        Cells(i, 32) = Cells(i - 1, 32)
+    End If
+    
+Next i
+
+
+For i = 3 To lastRow + 1
+    If i = 3 Then
+        countStart = 3
+    End If
+    If Cells(i, 17) = Cells(i - 1, 17) Then
+        countEnd = i
+    End If
+    If Cells(i, 17) <> Cells(i - 1, 17) Then
+        Cells(countStart, 18) = "=$E" & countStart & "-MIN(P" & countStart & ":P" & countEnd & ")*F" & countStart
+        Cells(countStart, 21) = "=$E" & countStart & "-sum(U" & countStart + 1 & ":U" & countEnd & ")"
+        Cells(countStart, 26) = "=$E" & countStart & "-sum(Z" & countStart + 1 & ":Z" & countEnd & ")"
+        Cells(countStart, 27) = "=$E" & countStart & "-sum(AA" & countStart + 1 & ":AA" & countEnd & ")"
+        Cells(countStart, 30) = "=$E" & countStart & "-sum(Ad" & countStart + 1 & ":Ad" & countEnd & ")"
+        Cells(countStart, 31) = "=$E" & countStart & "-sum(Ae" & countStart + 1 & ":Ae" & countEnd & ")"
+        Cells(countStart, 22) = "=countif(P" & countStart + 1 & ":P" & countEnd & ",min(P" & countStart & ":P" & countEnd & "))"
+        Cells(countStart, 33) = "=countif(af" & countStart + 1 & ":af" & countEnd & ",""" & standardization & """)"
+        Cells(countStart, 20) = Cells(countStart, 6)
+        minform = "=MIN(P" & countStart & ":P" & countEnd & ")"
+        For g = countStart To countEnd
+            Cells(g, 19) = minform
+        Next g
+        countStart = i
+    End If
+    If (Cells(i, 32) = standardization And Cells(i, 14) = False) Then
+        Cells(i, 29) = Cells(countStart, 6)
+    End If
+
+    
+Next i
+
+For i = 3 To lastRow
+    If Cells(i, 14) = "type" Then
+        counter = i
+    ElseIf (Cells(i, 32) = standardization And Cells(counter, 33) > 2 And Cells(i, 14) = False) Then
+        Cells(i, 29) = Cells(counter, 6) / (Cells(counter, 33) - 1)
+    End If
+    If (Cells(counter, 33) = 0 And Cells(i, 14) = False) Then
+        Cells(i, 29) = Cells(i, 6)
+    End If
+Next i
+
+For i = 3 To lastRow
+    If Cells(i, 14) = "type" Then
+        countStart = i
+    ElseIf (Cells(i, 16) = Cells(i, 19) And Cells(countStart, 22) > 0) Then
+        Cells(i, 20) = Cells(countStart, 20) / Cells(countStart, 22)
+    ElseIf Cells(i, 14) = "brand" Then
+        For g = i + 1 To lastRow
+            If Cells(g, 14) = False Then
+                countEnd = g
+            ElseIf Cells(g, 14) <> False Then
+                GoTo end_of_for
+            End If
+            Next g
+end_of_for:
+        Cells(i, 20) = "=SUM(T" & i + 1 & ":T" & countEnd & ")"
+        Cells(i, 25) = "=SUM(Y" & i + 1 & ":Y" & countEnd & ")"
+        Cells(i, 29) = "=SUM(AC" & i + 1 & ":AC" & countEnd & ")"
+    Else
+        Cells(i, 20) = 0
+    End If
+    If Cells(i, 14) = False Then
+        Cells(i, 25) = Cells(i, 6)
+    End If
+Next i
+            
+            
+For i = 3 To lastRow + 1
+    If i = 3 Then
+        countStart = 3
+    End If
+    If Cells(i, 17) = Cells(i - 1, 17) Then
+        countEnd = i
+    End If
+    If Cells(i, 17) <> Cells(i - 1, 17) Then
+        Cells(countStart, 20) = "=sum(T" & countStart + 1 & ":T" & countEnd & ")/2"
+        Cells(countStart, 25) = "=sum(Y" & countStart + 1 & ":Y" & countEnd & ")/2"
+        Cells(countStart, 29) = "=sum(AC" & countStart + 1 & ":AC" & countEnd & ")/2"
+        countStart = i
+    End If
+    
+Next i
+
+
+For i = 5 To lastRow
+    If (Cells(i, 29) = "" And Cells(i, 14) <> "group") Then
+        Cells(i, 29) = 0
+    End If
+
+Next i
+
+'begin formatting
+    
+'Format numbers to be more readable
+
+'format percentages
+    Columns("I:I").Select
+    Selection.UnMerge
+    Columns("I:I").Select
+    Selection.TextToColumns Destination:=Range("I1"), DataType:=xlDelimited, _
+        TextQualifier:=xlDoubleQuote, ConsecutiveDelimiter:=False, Tab:=True, _
+        Semicolon:=False, Comma:=False, Space:=False, Other:=False, FieldInfo _
+        :=Array(1, 1), TrailingMinusNumbers:=True
+    
+    Columns("K:K").Select
+    Selection.TextToColumns Destination:=Range("K1"), DataType:=xlDelimited, _
+        TextQualifier:=xlDoubleQuote, ConsecutiveDelimiter:=False, Tab:=True, _
+        Semicolon:=False, Comma:=False, Space:=False, Other:=False, FieldInfo _
+        :=Array(1, 1), TrailingMinusNumbers:=True
+
+    
+'move columns around and add text to column headers
+
+    Columns("R:R").Select
+    Selection.Insert Shift:=xlToRight, CopyOrigin:=xlFormatFromLeftOrAbove
+    Columns("T:T").Select
+    Selection.Cut
+    Columns("R:R").Select
+    Selection.Insert Shift:=xlToRight
+    Columns("W:W").Select
+    Selection.Cut
+    Columns("R:R").Select
+    Selection.Insert Shift:=xlToRight
+    Range("A1").Select
+    ActiveCell.FormulaR1C1 = "Group"
+    Range("B1").Select
+    ActiveCell.FormulaR1C1 = "Type"
+    Range("C1").Select
+    ActiveCell.FormulaR1C1 = "Brand"
+    Range("D1").Select
+    ActiveCell.FormulaR1C1 = "Product"
+    Range("A1:L1").Select
+    Range("U1").Select
+    ActiveCell.FormulaR1C1 = "PH Savings by type"
+    Range("V1").Select
+    ActiveCell.FormulaR1C1 = "New Volume"
+    Range("W1").Select
+    ActiveCell.FormulaR1C1 = "Custom Savings by type"
+    Rows("1:1").Select
+    Selection.Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Range("u1:w1").Select
+    Selection.Merge
+    ActiveCell.FormulaR1C1 = "Product Selection"
+    Range("AD1:AF1").Select
+    Selection.Merge
+    ActiveCell.FormulaR1C1 = "Standardization"
+    Range("Ad2").Value = "New Volume"
+    Range("ae2").Value = "=""Savings by type (current prices)" & Chr(10) & "Total Savings: ""&TEXT(SUMIF(C[-17],""type"",C),""$#,###,000"")"
+    Range("af2").Value = "=""Savings by type (target prices)" & Chr(10) & "Total Savings: ""&TEXT(SUMIF(C[-18],""type"",C),""$#,###,000"")"
+    Columns("A:C").ColumnWidth = 8.18
+    Columns("D:D").EntireColumn.AutoFit
+
+'format cells A2 to I2
+
+    Range("A2:I2").Select
+    With Selection.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 14277081
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    With Selection.Font
+        .ColorIndex = xlAutomatic
+        .TintAndShade = 0
+        .Bold = True
+    End With
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+'add borders
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    
+'format spend over cells
+    
+    Range("E1:I1").Select
+    With Selection.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 8421504
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    With Selection.Font
+        .ThemeColor = xlThemeColorDark1
+        .TintAndShade = 0
+        .Bold = True
+    End With
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+' add borders
+    End With
+        With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+
+
+
+
+
+
+'format columns U and W
+    Range("U:U,W:W").Select
+    Selection.NumberFormat = "$#,##0"
+    With Selection
+        .HorizontalAlignment = xlGeneral
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+    End With
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+    End With
+
+'format column v
+    Columns("V:V").Select
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+    End With
+    Columns("V:V").NumberFormat = "###,##0"
+
+ActiveWindow.DisplayGridlines = False
+
+'conditional formatting for borders
+
+    Range("U4:V1137").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=LEN(TRIM(U4))>0"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Borders(xlLeft)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlRight)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlTop)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlBottom)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+    
+'conditional formatting for borders
+
+    Range("w4:w1137").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=n4=""type"""
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Borders(xlLeft)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlRight)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlTop)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlBottom)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+    
+    Range("ae4:af1137").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=$n4=""type"""
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Borders(xlLeft)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlRight)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlTop)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlBottom)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+
+  
+'adjust cell W2
+    Range("W2").Select
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = True
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+
+'adjust column and row sizes
+    Columns("W:W").ColumnWidth = 25.29
+    Columns("U:U").ColumnWidth = 25.29
+    Columns("V:V").ColumnWidth = 15.43
+    Rows("2:2").RowHeight = 42.75
+
+'add formulas to Product Selection Savings
+    Range("W2").FormulaR1C1 = _
+        "=""Custom Savings by type" & Chr(10) & "Total Savings: ""&TEXT(SUMIF(C[-9],""type"",C),""$#,###,000"")"
+    Range("U2").FormulaR1C1 = _
+        "=""Savings by type" & Chr(10) & "Total Savings: ""&TEXT(SUM(R[2]C:R[998]C),""$#,###,000"")"
+    Range("U2").WrapText = True
+
+'utilization formatting
+    Range("Z1").FormulaR1C1 = " Utilization"
+    Range("Z1:AB1").Select
+    Range("AA1").Activate
+    With Selection.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 5066944
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    Selection.Merge
+    With Selection.Font
+        .ThemeColor = xlThemeColorDark1
+        .TintAndShade = 0
+        .Bold = True
+    End With
+    Range("Z2:AB2").Select
+    With Selection.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 9737946
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    Selection.Font.Bold = True
+'Utilization column names
+
+    Range("Z2").FormulaR1C1 = "New Volume"
+    Range("AA2").FormulaR1C1 = "=""Savings by type" & Chr(10) & "Total Savings (current prices): ""&TEXT(SUMIF(C[-13],""type"",C),""$#,###,000"")"
+    Range("AB2").FormulaR1C1 = "=""Savings by type" & Chr(10) & "Total Savings (target prices): ""&TEXT(SUMIF(C[-14],""type"",C),""$#,###,000"")"
+'Utilization borders conditional formatting
+    Range("Z4:Z960").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=LEN(TRIM(Z4))>0"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Borders(xlLeft)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlRight)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlTop)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlBottom)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+'center alignment
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+'conditional formatting for volume column
+    Range("AA4:AB1149").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:="=$N4=""type"""
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Borders(xlLeft)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlRight)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlTop)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.FormatConditions(1).Borders(xlBottom)
+        .LineStyle = xlContinuous
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+    With Selection
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    Columns("AB:AC").NumberFormat = "$#,##0"
+'column sizes
+    Columns("Z:Z").EntireColumn.AutoFit
+    Columns("AA:AA").ColumnWidth = 26.14
+    Columns("Ab:Ab").ColumnWidth = 26.14
+    
+'format pricing strategies
+    Columns("J:J").Insert Shift:=xlToRight, CopyOrigin:=xlFormatFromLeftOrAbove
+    Columns("J:J").UnMerge
+    Columns("J:J").Clear
+    Columns("J:J").ColumnWidth = 10.27
+    Range("K2:M2").Select
+    With Selection.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 14395790
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    Selection.HorizontalAlignment = xlCenter
+    Selection.Font.Bold = True
+
+'edit to spend overview stuff b/c of merging problem I can't figure out
+    Range("E1:I1").Select
+    Selection.Merge
+    ActiveCell.FormulaR1C1 = "Spend Overview"
+
+    Range("K1:M1").Select
+    Selection.Merge
+    ActiveCell.FormulaR1C1 = "Pricing"
+    With Selection.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 12874308
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    With Selection.Font
+        .ThemeColor = xlThemeColorDark1
+        .TintAndShade = 0
+        .Bold = True
+    End With
+    Selection.HorizontalAlignment = xlCenter
+    
+    Range("K1:M2").Select
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    
+
+
+    Range("E:E,G:H,M:M").NumberFormat = "$#,##0_-"
+    
+    Range("I:I", "L:L").NumberFormat = "0%"
+    Columns("I:I").ColumnWidth = 15.27
+
+    Range("K:K").NumberFormat = "$#,##0_-"
+    
+'format product selection header
+    Range("V1:X1").Select
+    With Selection.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 10642560
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    With Selection.Font
+        .ThemeColor = xlThemeColorDark1
+        .TintAndShade = 0
+        .Bold = True
+    End With
+        
+    Range("V2:X2").Select
+    With Selection.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 13082801
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    Selection.Font.Bold = True
+
+
+    Range("V1:X2,AA1:AC2").Select
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    
+'hide columns
+    Columns("N:T").EntireColumn.Hidden = True
+    
+
+
+
+
+'move columns around
+    Range("W2:W1170").Cut
+    Range("V2").Insert Shift:=xlToRight
+    Columns("V:V").ColumnWidth = 13.18
+    Columns("W:W").ColumnWidth = 22.18
+    Columns("X:X").ColumnWidth = 22.18
+    Columns("AB:AB").ColumnWidth = 22.18
+    Columns("AC:AC").ColumnWidth = 22.18
+    Range("AB2:AC2").HorizontalAlignment = xlCenter
+    Range("AB2:AC2").WrapText = True
+
+    Rows("1:1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Rows("1:1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Rows("1:1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Rows("1:1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+ 
+
+
+
+
+
+
+
+    
+    Dim headertext As Variant
+    headertext = InputBox("Enter your header")
+    Range("A3:D3").Select
+    With Selection
+        .HorizontalAlignment = xlRight
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    Selection.Merge
+    ActiveCell.FormulaR1C1 = headertext
+    Selection.Font.Bold = True
+    Selection.Font.Size = 18
+
+    Range("U:U,Y:Y,Z:Z").Clear
+    
+    Columns("Z:Z").Delete Shift:=xlToLeft
+
+    Range("E7").Select
+    ActiveWindow.FreezePanes = True
+    
+'bubble callouts
+
+    ActiveSheet.Shapes.AddShape(msoShapeRoundedRectangularCallout, 1339.2857480315 _
+        , 167.1428346457, 151.0714173228, 72.8571653543).Select
+    Selection.ShapeRange.Adjustments.Item(1) = -0.76152
+    Selection.ShapeRange.Adjustments.Item(2) = -0.30147
+    Selection.ShapeRange(1).TextFrame2.TextRange.Characters.Text = _
+        "Custom strategies can be created by adjusting the volume on the product level."
+    With Selection.ShapeRange(1).TextFrame2.TextRange.Characters(1, 78). _
+        ParagraphFormat
+        .FirstLineIndent = 0
+        .Alignment = msoAlignLeft
+    End With
+    With Selection.ShapeRange(1).TextFrame2.TextRange.Characters(1, 6).Font
+        .NameComplexScript = "+mn-cs"
+        .NameFarEast = "+mn-ea"
+        .Fill.Visible = msoTrue
+        .Fill.ForeColor.ObjectThemeColor = msoThemeColorLight1
+        .Fill.ForeColor.TintAndShade = 0
+        .Fill.ForeColor.Brightness = 0
+        .Fill.Transparency = 0
+        .Fill.Solid
+        .Size = 11
+        .Name = "+mn-lt"
+    End With
+    With Selection.ShapeRange(1).TextFrame2.TextRange.Characters(7, 72).Font
+        .BaselineOffset = 0
+        .NameComplexScript = "+mn-cs"
+        .NameFarEast = "+mn-ea"
+        .Fill.Visible = msoTrue
+        .Fill.ForeColor.ObjectThemeColor = msoThemeColorLight1
+        .Fill.ForeColor.TintAndShade = 0
+        .Fill.ForeColor.Brightness = 0
+        .Fill.Transparency = 0
+        .Fill.Solid
+        .Size = 11
+        .Name = "+mn-lt"
+    End With
+    Selection.ShapeRange.ScaleHeight 0.8088234341, msoFalse, msoScaleFromTopLeft
+    Selection.ShapeRange.IncrementTop 15
+    Selection.ShapeRange.Adjustments.Item(1) = -0.76152
+    Selection.ShapeRange.Adjustments.Item(2) = -0.55602
+    Selection.Copy
+    ActiveSheet.Paste
+    Selection.ShapeRange.IncrementLeft 351.4285826772
+    Selection.ShapeRange.IncrementTop -11.7857480315
+    
+    ActiveWindow.Zoom = 85
+    
+    Cells.Select
+    Selection.FormatConditions.Add Type:=xlCellValue, Operator:=xlLess, _
+        Formula1:="=-0.01"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Font
+        .Bold = True
+        .Italic = False
+        .Color = -16776961
+        .TintAndShade = 0
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+
+Cells.FormulaHidden = True
+
+For i = 8 To lastRow
+    If Cells(i, 14) = False Then
+        Cells(i, 22).Locked = False
+        Cells(i, 26).Locked = False
+        Cells(i, 30).Locked = False
+    End If
+    
+Next i
+        
+    Range("k4").Select
+    With Selection.Validation
+        .Delete
+        .Add Type:=xlValidateInputOnly, AlertStyle:=xlValidAlertStop, Operator _
+        :=xlBetween
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .InputTitle = "What is pricing?"
+        .ErrorTitle = ""
+        .InputMessage = "Description of pricing provided for users."
+        .ErrorMessage = ""
+        .ShowInput = True
+        .ShowError = False
+    End With
+    
+    Range("K4").Value = "What is pricing?"
+    Range("K4").Font.Italic = True
+    Range("K4").Font.Color = -4357809
+    
+    Range("V4").Select
+    With Selection.Validation
+        .Delete
+        .Add Type:=xlValidateInputOnly, AlertStyle:=xlValidAlertStop, Operator _
+        :=xlBetween
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .InputTitle = "What is product selection?"
+        .ErrorTitle = ""
+        .InputMessage = "Description of product selection provided for users."
+        .ErrorMessage = ""
+        .ShowInput = True
+        .ShowError = False
+    End With
+    
+    Range("v4").Value = "What is product selection?"
+    Range("v4").Font.Italic = True
+    Range("v4").Font.Color = -4357809
+    Range("V4").HorizontalAlignment = xlLeft
+    
+    
+    Range("Z4").Select
+    With Selection.Validation
+        .Delete
+        .Add Type:=xlValidateInputOnly, AlertStyle:=xlValidAlertStop, Operator _
+        :=xlBetween
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .InputTitle = "What is utilization?"
+        .ErrorTitle = ""
+        .InputMessage = "Description of utilization provided for users."
+        .ErrorMessage = ""
+        .ShowInput = True
+        .ShowError = False
+    End With
+    
+    Range("Z4").Value = "What is utilization?"
+    Range("Z4").Font.Italic = True
+    Range("Z4").Font.Color = -4357809
+    
+    Range("b5").Select
+    With Selection.Validation
+        .Delete
+        .Add Type:=xlValidateInputOnly, AlertStyle:=xlValidAlertStop, Operator _
+        :=xlBetween
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .InputTitle = "What is a type?"
+        .ErrorTitle = ""
+        .InputMessage = "Description of types provided for users."
+        .ErrorMessage = ""
+        .ShowInput = True
+        .ShowError = False
+    End With
+    
+    Range("b5").Value = "What is a type?"
+    Range("b5").Font.Italic = True
+    Range("b5").Font.Color = -4357809
+
+    Range("ad4").Select
+    With Selection.Validation
+        .Delete
+        .Add Type:=xlValidateInputOnly, AlertStyle:=xlValidAlertStop, Operator _
+        :=xlBetween
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .InputTitle = "What is standardization?"
+        .ErrorTitle = ""
+        .InputMessage = "Description of standardization provided for users."
+        .ErrorMessage = ""
+        .ShowInput = True
+        .ShowError = False
+    End With
+    
+    Range("ad4").Value = "What is standardization?"
+    Range("ad4").Font.Italic = True
+    Range("ad4").Font.Color = -4357809
+    Range("ad4").HorizontalAlignment = xlLeft
+    
+Range("Z2:AB3").Merge
+Range("Z2").FormulaR1C1 = "=""Overall utilization volume ""&ABS(SUMIF(C[-11],""type"",C)-SUMIF(C[-11],""type"",C[-20]))&"" units""&IF((SUMIF(C[-11],""type"",C)-SUMIF(C[-11],""type"",C[-20]))>0,"" more than original volume."","" less than original volume."")"
+Range("Z2").Font.Color = vbWhite
+Range("Z2").VerticalAlignment = xlCenter
+Range("Z2").HorizontalAlignment = xlCenter
+Range("Z2").Font.Size = 14
+Range("Z2").WrapText = True
+
+Range("V2:X3").Merge
+Range("V2").FormulaR1C1 = "=""Overall product selection volume ""&ABS(SUMIF(C[-7],""type"",C)-SUMIF(C[-7],""type"",C[-16]))&"" units""&IF((SUMIF(C[-7],""type"",C)-SUMIF(C[-7],""type"",C[-16]))>0,"" more than original volume."","" less than original volume."")"
+Range("V2").Font.Color = vbWhite
+Range("V2").VerticalAlignment = xlCenter
+Range("V2").HorizontalAlignment = xlCenter
+Range("V2").Font.Size = 14
+Range("V2").WrapText = True
+
+Range("ad2:af3").Merge
+Range("ad2").FormulaR1C1 = "=""Overall standardization volume ""&ABS(SUMIF(C[-15],""type"",C)-SUMIF(C[-15],""type"",C[-24]))&"" units""&IF((SUMIF(C[-15],""type"",C)-SUMIF(C[-15],""type"",C[-24]))>0,"" more than original volume."","" less than original volume."")"
+Range("ad2").Font.Color = vbWhite
+Range("ad2").VerticalAlignment = xlCenter
+Range("ad2").HorizontalAlignment = xlCenter
+Range("ad2").Font.Size = 14
+Range("ad2").WrapText = True
+
+
+
+Range("Z2:AB3").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=(SUMIF(O:O,""type"",Z:Z)-SUMIF(O:O,""type"",F:F))<>0"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Font
+        .Bold = True
+        .Italic = False
+        .ThemeColor = xlThemeColorDark1
+        .TintAndShade = 0
+    End With
+    With Selection.FormatConditions(1).Interior
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent2
+        .TintAndShade = 0
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+    
+Range("V2:X3").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=(SUMIF(O:O,""type"",V:V)-SUMIF(O:O,""type"",F:F))<>0"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Font
+        .Bold = True
+        .Italic = False
+        .ThemeColor = xlThemeColorDark1
+        .TintAndShade = 0
+    End With
+    With Selection.FormatConditions(1).Interior
+        .PatternColorIndex = xlAutomatic
+        .Color = 10642560
+        .TintAndShade = 0
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+
+
+Range("AD2:AF3").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=(SUMIF(O:O,""type"",AD:AD)-SUMIF(O:O,""type"",F:F))<>0"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Font
+        .Bold = True
+        .Italic = False
+        .ThemeColor = xlThemeColorDark1
+        .TintAndShade = 0
+    End With
+    With Selection.FormatConditions(1).Interior
+        .PatternColorIndex = xlAutomatic
+        .Color = 4626167
+        .TintAndShade = 0
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+    
+
+
+    Columns("V:V").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=AND(O1=""type"",V1<>F1)"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Interior
+        .Color = 255
+        .TintAndShade = 0
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+
+    Columns("AD:Ad").Select
+    Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=AND(O1=""type"",AD1<>F1)"
+    Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+    With Selection.FormatConditions(1).Interior
+        .Color = 255
+        .TintAndShade = 0
+    End With
+    Selection.FormatConditions(1).StopIfTrue = False
+
+Columns("AC:AC").Clear
+Range("AD5:AF5").Interior.Color = 4626167
+Range("AD6:AF6").Interior.Color = 9420794
+Range("Ad5:Af6").Font.Bold = True
+Range("AD5:AF5").Font.Color = vbWhite
+Range("AD6:AF6").HorizontalAlignment = xlCenter
+Range("AD5:AF5").HorizontalAlignment = xlCenter
+Range("AD6:AF6").WrapText = True
+
+'borders
+    Range("AD5:AF6").Select
+    Range("AD6").Activate
+    Selection.Borders(xlDiagonalDown).LineStyle = xlNone
+    Selection.Borders(xlDiagonalUp).LineStyle = xlNone
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideVertical)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With Selection.Borders(xlInsideHorizontal)
+        .LineStyle = xlContinuous
+        .ColorIndex = 0
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    
+Columns("AD:AD").ColumnWidth = 12
+Columns("AE:AE").ColumnWidth = 26.14
+Columns("AF:AF").ColumnWidth = 26.14
+Columns("AD:AF").HorizontalAlignment = xlCenter
+Range("AD4").HorizontalAlignment = True
+Columns("AE:AF").NumberFormat = "$###,##0"
+Columns("AD:AD").NumberFormat = "###,##0"
+
+Range("AD8:AD1000").Select
+Selection.FormatConditions.Add Type:=xlExpression, Formula1:= _
+        "=LEN(TRIM(AD8))>0"
+Selection.FormatConditions(Selection.FormatConditions.Count).SetFirstPriority
+With Selection.FormatConditions(1).Borders(xlLeft)
+    .LineStyle = xlContinuous
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Selection.FormatConditions(1).Borders(xlRight)
+    .LineStyle = xlContinuous
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Selection.FormatConditions(1).Borders(xlTop)
+    .LineStyle = xlContinuous
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Selection.FormatConditions(1).Borders(xlBottom)
+    .LineStyle = xlContinuous
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+Selection.FormatConditions(1).StopIfTrue = False
+
+Columns("AG:AH").EntireColumn.Hidden = True
+
+Dim myValue As Variant
+myValue = InputBox("Enter your username")
+Dim path As String
+path = "C:\Users\" & myValue & "\Google Drive\PipelinePRO\Analytics Internal Projects\procuredimage_dontdelete.png"
+ActiveSheet.Shapes.AddPicture path, Fales, True, 1, 1, -1, -1
+
+ActiveSheet.Protect DrawingObjects:=False, Contents:=True, Scenarios:= _
+        False, AllowFormattingCells:=True, AllowFormattingColumns:=True, _
+        AllowFormattingRows:=True, AllowInsertingColumns:=True, AllowInsertingRows _
+        :=True, AllowInsertingHyperlinks:=True, AllowDeletingColumns:=True, _
+        AllowDeletingRows:=True, AllowSorting:=True, AllowFiltering:=True, _
+        AllowUsingPivotTables:=True
+
+Application.ScreenUpdating = True
+    
+
+End Sub

@@ -1,0 +1,309 @@
+
+#####################################################################
+#                    MARKET ANALYTICS BY SKU                        #
+#*******************************************************************#
+######################## CALCULATE BENCHMARKS ########################
+options(digits=15,scipen=999)
+
+strip <- function(x){
+  x <- str_replace_all(x, "[^[:alnum:]]", "")
+  x <- substr(x,regexpr("[^0]",x),nchar(x))
+  return(as.character(x))
+}
+
+
+benchmarking_data$vendor_catalog_number_stripped <- ifelse(benchmarking_data$vendor_catalog_number_stripped=="",as.character(benchmarking_data[,"manufacturer_catalog_number_stripped"]),as.character(benchmarking_data[,"vendor_catalog_number_stripped"]))
+
+
+sku.min <- aggregate(benchmarking_data$price_per_each, by = list(benchmarking_data$brand, benchmarking_data$matched_catalog_number_stripped, benchmarking_data$product,benchmarking_data$type_name), quantile, probs = 0)
+
+#identify duplicate SKU's
+sku.duplicates <- rbind(sku.min[duplicated(sku.min$Group.2),],sku.min[duplicated(sku.min$Group.2,fromLast=TRUE),])
+if(nrow(sku.duplicates)>1){
+  write.csv(sku.duplicates, paste(PATH, "Benchmarking_Output", "sku_duplicates.csv", sep = "/"), row.names = TRUE)
+  stop("You have duplicates that will impact SKU-level benchmarking")
+}
+
+
+sku.10th <- aggregate(rep(x = benchmarking_data$price_per_each, times = benchmarking_data$total_units), by = list(rep(x = benchmarking_data$brand, times = benchmarking_data$total_units), rep(x = benchmarking_data$matched_catalog_number_stripped, times = benchmarking_data$total_units),rep( x=benchmarking_data$product, times = benchmarking_data$total_units),rep(x=benchmarking_data$type_name,times=benchmarking_data$total_units)),quantile, probs = .1)
+
+sku.25th <- aggregate(rep(x = benchmarking_data$price_per_each, times = benchmarking_data$total_units), by = list(rep(x = benchmarking_data$brand, times = benchmarking_data$total_units), rep(x = benchmarking_data$matched_catalog_number_stripped, times = benchmarking_data$total_units),rep( x=benchmarking_data$product, times = benchmarking_data$total_units),rep(x=benchmarking_data$type_name,times=benchmarking_data$total_units)), quantile, probs = .25)
+
+sku.50th <- aggregate(rep(x = benchmarking_data$price_per_each, times = benchmarking_data$total_units), by = list(rep(x = benchmarking_data$brand, times = benchmarking_data$total_units), rep(x = benchmarking_data$matched_catalog_number_stripped, times = benchmarking_data$total_units),rep( x=benchmarking_data$product, times = benchmarking_data$total_units),rep(x=benchmarking_data$type_name,times=benchmarking_data$total_units)), quantile, probs = .50)
+
+sku.mean <- aggregate(rep(x = benchmarking_data$price_per_each, times = benchmarking_data$total_units), by = list(rep(x = benchmarking_data$brand, times = benchmarking_data$total_units), rep(x = benchmarking_data$matched_catalog_number_stripped, times = benchmarking_data$total_units),rep( x=benchmarking_data$product, times = benchmarking_data$total_units),rep(x=benchmarking_data$type_name,times=benchmarking_data$total_units)), mean)
+
+sku.75th <- aggregate(rep(x = benchmarking_data$price_per_each, times = benchmarking_data$total_units), by = list(rep(x = benchmarking_data$brand, times = benchmarking_data$total_units), rep(x = benchmarking_data$matched_catalog_number_stripped, times = benchmarking_data$total_units),rep( x=benchmarking_data$product, times = benchmarking_data$total_units),rep(x=benchmarking_data$type_name,times=benchmarking_data$total_units)), quantile, probs = .75)
+
+
+######################## CREATE SKU LEVEL DATA ########################
+benchmarking.by.sku <- data.frame(sku.min, sku.10th$x, sku.25th$x, sku.50th$x,sku.mean$x, sku.75th$x)
+colnames(benchmarking.by.sku) <- c("brand", "vendor_catalog","product","type", "min", "tenth", "twenty_fifth", "fiftieth","mean", "seventy_fifth")
+
+benchmarking.by.sku$vendor_catalog <- as.character(benchmarking.by.sku$vendor_catalog)
+
+providers_sku <- as.vector(unique(benchmarking_data$provider_name))
+providers_sku <- rep(providers_sku,each=nrow(benchmarking.by.sku))
+providers_sku <- data.frame(providers_sku)
+
+benchmarking.by.sku <- data.frame(benchmarking.by.sku,providers_sku)
+colnames(benchmarking.by.sku)[11] <- "provider"
+
+benchmarking.by.sku$unique.id <- paste(benchmarking.by.sku$brand, benchmarking.by.sku$vendor_catalog, sep = " _ ")
+benchmarking.by.sku$unique.id.provider <- paste(benchmarking.by.sku$unique.id, benchmarking.by.sku$provider, sep = " _ ")
+
+benchmarking_data$unique.id <- paste(benchmarking_data$brand, benchmarking_data$matched_catalog_number_stripped, sep = " _ ")
+benchmarking_data$unique.id.provider <- paste(benchmarking_data$unique.id,benchmarking_data$provider_name, sep = " _ ")
+
+benchmarking.by.sku.subset <- benchmarking.by.sku[which(benchmarking.by.sku$unique.id.provider %in% benchmarking_data$unique.id.provider),]
+
+
+provider.mean <- NULL
+provider.min <- NULL
+provider.percentile <- NULL
+catalog_original <- NULL
+provider.count <- NULL
+unique.id.key <- NULL
+i = 1
+for(i in 1:nrow(benchmarking.by.sku.subset)){
+  unique.id.provider <- benchmarking.by.sku.subset$unique.id.provider[i]
+  unique.id <- benchmarking.by.sku.subset$unique.id[i]
+  
+  bench.provider.subset <- benchmarking_data[benchmarking_data$unique.id.provider == unique.id.provider,]
+  bench.catalog.subset <- benchmarking_data[benchmarking_data$unique.id == unique.id,]
+  
+  provider.min[i] <- min(bench.provider.subset$price_per_each)
+  provider.mean[i] <-  sum(bench.provider.subset$price_per_each * bench.provider.subset$total_units)/sum(bench.provider.subset$total_units)
+  provider.percentile[i]  <- sum((bench.catalog.subset$price_per_each < provider.mean[i])*bench.catalog.subset$total_units)/sum(bench.catalog.subset$total_units)
+  
+  catalog_original[i] <- as.character(bench.provider.subset$vendor_catalog_number[1])
+  provider.count[i] <- sum(bench.provider.subset$total_units)
+  unique.id.key[i] <- as.character(bench.provider.subset$unique.id.provider[1])
+}
+provider_sku <- data.frame(catalog_original, provider.min, provider.mean, provider.count, provider.percentile,unique.id.key)
+colnames(provider_sku) <- c("vendor_catalog_original", "provider_min_price", "provider_mean_price", "provider_total_units", "provider_percentile","unique.id.provider")
+
+
+sku <- merge(x = benchmarking.by.sku, y = provider_sku, by = "unique.id.provider",all.x=TRUE)
+
+
+######################## CREATE OUTPUT ########################
+sku <- data.frame(sku$type, sku$brand, sku$product, sku$vendor_catalog, sku$vendor_catalog_original, sku$min, sku$tenth, sku$twenty_fifth, sku$fiftieth, sku$mean, sku$seventy_fifth,"", sku$provider_total_units, sku$provider_min_price, sku$provider_mean_price, sku$provider_percentile,sku$provider)
+colnames(sku) <- c("type", "brand", "product", "catalog_number_stripped", "catalog_number", "min_benchmark_price", "10%", "25%", "50%", "mean_benchmark_price", "75%", "", "total_provider_units", "min_provider_price", "mean_provider_price", "provider_mean_percentile","provider")
+
+type_group_map <- benchmarking_data[!duplicated(benchmarking_data[c('groupname', 'type_name')]),c('groupname', 'type_name')]
+colnames(type_group_map) <- c('group', 'type')
+sku <- merge(type_group_map, sku, by = 'type', all.x = T)
+
+sku$pricing_variability_savings <- (sku$mean_provider_price - sku$min_provider_price)*sku$total_provider_units
+sku$total_spend <- (sku$mean_provider_price*sku$total_provider_units)
+
+sku <- sku[order(sku$type,sku$total_spend,na.last=TRUE, decreasing = TRUE),]
+
+write.csv(sku, paste(PATH, "Benchmarking_Output","Standardization_Output", "Provider_Percentile_Comparison_SKU_Mean.csv", sep = "/"), row.names = TRUE)
+
+
+##############SUMMARIZING DATA###################################################################################################
+
+#generate column to match benchmarking to percentiles based on a combination of provider, brand and catalog number
+#this ensures that each provider gets the type level benchmarking and the provider specific benchmarking
+benchmarking_data <- read.csv(paste(PATH, BENCHMARKING_FILE, sep = "/"))
+benchmarking_data$vendor_catalog_number_stripped <- ifelse(benchmarking_data$vendor_catalog_number_stripped=="",as.character(benchmarking_data[,"manufacturer_catalog_number_stripped"]),as.character(benchmarking_data[,"vendor_catalog_number_stripped"]))
+#pull in provider comparison data
+provider_comparison <-  read.csv(paste(PATH,'Benchmarking_Output',"Standardization_Output",'Provider_Percentile_Comparison_SKU_Mean.csv',sep="/"))
+provider_comparison <-  provider_comparison[,c(-1)]
+
+benchmarking_data$unique.id <- paste(benchmarking_data$provider_name,benchmarking_data$brand,benchmarking_data$product,benchmarking_data$matched_catalog_number_stripped,sep=" - ")
+colnames(benchmarking_data)[which(colnames(benchmarking_data) == c("unique.id"))] <- c("unique.id")
+benchmarking_data$typegroup <- ifelse(benchmarking_data$typename=="",as.character(benchmarking_data$groupname),paste(benchmarking_data$typename,benchmarking_data$groupname,sep=" - "))
+colnames(benchmarking_data)[which(colnames(benchmarking_data) == c("provider_name"))] <- c("provider")
+colnames(provider_comparison)[which(colnames(provider_comparison) == c("catalog_number_stripped"))] <- "matched_catalog_number_stripped"
+colnames(provider_comparison)[which(colnames(provider_comparison) == c("type"))] <- "typegroup"
+provider_comparison$unique.id <- paste(provider_comparison$provider,provider_comparison$brand,provider_comparison$product,provider_comparison$matched_catalog_number_stripped,sep=" - ")
+mergevector <- c("provider","brand","product","matched_catalog_number_stripped","typegroup","unique.id")
+
+#merge benchmarking sku output and benchmarking raw data based on new column
+benchmarking_data <- merge(x = benchmarking_data, y = provider_comparison,by=mergevector)
+write.csv(benchmarking_data,paste(PATH,"Benchmarking_Output","Standardization_Output","benchmarking_data_final.csv", sep = "/"), row.names = TRUE)
+
+
+benchmarking_data <- unique(benchmarking_data)
+
+#generate provider brand column
+benchmarking_data$provider_vendor <- paste(benchmarking_data$provider, benchmarking_data$brand, sep = " _ ")
+
+#create vectors with sums of units and costs for each provider and each brand
+sum_provider_total_units <- tapply(X = benchmarking_data$totaleaches,INDEX = benchmarking_data$provider, FUN = sum)
+provider_total_spend <- tapply(X = benchmarking_data$extended_cost,INDEX = benchmarking_data$provider, FUN = sum)
+provider_brand_data <- tapply(X = benchmarking_data$totaleaches, INDEX = benchmarking_data$provider_vendor, FUN = sum)
+provider_brand_data_spend <- tapply(X = benchmarking_data$extended_cost, INDEX = benchmarking_data$provider_vendor, FUN = sum)
+
+#morph into data frames
+sum_provider_total_units <- data.frame(rownames(sum_provider_total_units), sum_provider_total_units)
+colnames(sum_provider_total_units) <- c("provider", "sum_provider_total_units")
+provider_total_spend <- data.frame(rownames(provider_total_spend), provider_total_spend)
+colnames(provider_total_spend) <- c("provider", "provider_total_spend")
+provider_brand_data <- data.frame(rownames(provider_brand_data), provider_brand_data)
+colnames(provider_brand_data) <- c("provider_vendor", "provider_vendor_total_units")
+provider_brand_data_spend <- data.frame(rownames(provider_brand_data_spend), provider_brand_data_spend)
+colnames(provider_brand_data_spend) <- c("provider_vendor", "provider_vendor_total_spend")
+
+#merge with benchmarking data
+benchmarking_data <- merge(x = benchmarking_data, y = sum_provider_total_units, by = "provider")
+benchmarking_data <- merge(x = benchmarking_data, y = provider_total_spend, by = "provider")
+benchmarking_data <- merge(x = benchmarking_data, y = provider_brand_data, by = "provider_vendor")
+benchmarking_data <- merge(x = benchmarking_data, y = provider_brand_data_spend, by = "provider_vendor")
+
+#calculate vendor share
+benchmarking_data$provider_vendor_share <- benchmarking_data$provider_vendor_total_units/benchmarking_data$sum_provider_total_units
+benchmarking_data$provider_vendor_share_spend <- benchmarking_data$provider_vendor_total_spend/benchmarking_data$provider_total_spend
+
+#annualize units and spend
+benchmarking_data$po_time_date <- timeDate(charvec = as.character(benchmarking_data$po_date), format = "%m/%d/%Y")
+benchmarking_data$provider_name <- benchmarking_data$provider 
+
+provider_min_date <-aggregate(benchmarking_data[ , c("po_time_date")],list(benchmarking_data$provider_name), function(x) min(as.Date(x)))
+provider_max_date <-aggregate(benchmarking_data[ , c("po_time_date")],list(benchmarking_data$provider_name), function(x) max(as.Date(x)))
+
+colnames(provider_min_date)[1] <- "provider_name"
+colnames(provider_min_date)[2] <- "provider_min_date"
+colnames(provider_max_date)[1] <- "provider_name"
+colnames(provider_max_date)[2] <- "provider_max_date"
+
+provider_annualization_data <- merge(x = provider_min_date, y = provider_max_date, by = "provider_name")
+provider_annualization_data$provider_min_month <- month(provider_annualization_data$provider_min_date)+year(provider_annualization_data$provider_min_date)*12
+provider_annualization_data$provider_max_month <- month(provider_annualization_data$provider_max_date)+year(provider_annualization_data$provider_max_date)*12
+provider_annualization_data$annualization_index <- (provider_annualization_data$provider_max_month-provider_annualization_data$provider_min_month+1)/12
+
+benchmarking_data <- merge(x = benchmarking_data, y = provider_annualization_data, by = "provider_name")
+
+benchmarking_data$all_provider_total_annualized_units <- benchmarking_data$sum_provider_total_units/benchmarking_data$annualization_index
+benchmarking_data$all_provider_total_annualized_spend <- benchmarking_data$provider_total_spend/benchmarking_data$annualization_index
+benchmarking_data$annualized_spend <- benchmarking_data$extended_cost/benchmarking_data$annualization_index
+benchmarking_data$annualized_units <- benchmarking_data$totaleaches/benchmarking_data$annualization_index
+
+
+#generate weights
+benchmarking_data$poline_units_weight <- benchmarking_data$totaleaches/benchmarking_data$sum_provider_total_units
+benchmarking_data$poline_spend_weight <- benchmarking_data$extended_cost/benchmarking_data$provider_total_spend
+benchmarking_data$vendor_units_weight <- benchmarking_data$totaleaches/benchmarking_data$provider_vendor_total_units
+benchmarking_data$vendor_spend_weight <- benchmarking_data$extended_cost/benchmarking_data$provider_vendor_total_spend
+
+#DEPENDENT ON WEIGHTS
+#generate weighted percentile
+benchmarking_data$weighted_percentile_spend <- benchmarking_data$poline_spend_weight*benchmarking_data$provider_mean_percentile
+benchmarking_data$weighted_percentile_units <- benchmarking_data$poline_units_weight*benchmarking_data$provider_mean_percentile
+benchmarking_data$weighted_percentile_vendor_spend <- benchmarking_data$vendor_spend_weight*benchmarking_data$provider_mean_percentile
+benchmarking_data$weighted_percentile_vendor_units <- benchmarking_data$vendor_units_weight*benchmarking_data$provider_mean_percentile
+
+#sum weighted percentiles by provider
+provider_weighted_percentiles_vector <- c("provider","weighted_percentile_spend")
+if (STAND_UNITS==TRUE)
+{provider_weighted_percentiles_vector <- c("provider","weighted_percentile_units")}
+provider_weighted_percentiles <- benchmarking_data[,provider_weighted_percentiles_vector]
+provider_weighted_percentiles$dummy <- "provider_weighted_percentiles"
+provider_weighted_percentiles <- cast(provider_weighted_percentiles, provider ~ dummy, sum, value = provider_weighted_percentiles_vector[2])
+
+
+
+#calculate sum percentiles by brand
+brand_percentiles_vector <- c("provider","brand","weighted_percentile_vendor_spend")
+if (STAND_UNITS==TRUE)
+{brand_percentiles_vector <- c("provider","brand","weighted_percentile_vendor_units")}
+brand_percentiles <- benchmarking_data[,brand_percentiles_vector]
+brand_percentiles <- cast(brand_percentiles, provider ~ brand, sum, value = brand_percentiles_vector[3])
+
+#calculate vendor share, vendor volume, and ann volume by provider
+
+vendor_share_vector <- c("provider","brand","provider_vendor_share_spend")
+if (STAND_UNITS==TRUE)
+{vendor_share_vector <- c("provider","brand","provider_vendor_share")}
+vendor_share <- unique(benchmarking_data[,vendor_share_vector])
+vendor_share <- cast(vendor_share,provider ~ brand, sum, value=vendor_share_vector[3])
+vendor_share2 <- vendor_share
+vendor_share$standardization_index <- apply(vendor_share,1,function(x) sum(x*x))
+vendor_share$number_of_vendors <- apply(vendor_share2,1,function(x) sum(x>0))
+
+#important for type level benchmarking
+provider_weighted_percentiles <- merge(x=provider_weighted_percentiles,y=vendor_share[,c("provider","standardization_index")],by="provider")
+
+#annualizing spend and units by brand
+provider_brand_data_ann_spend <- tapply(X = benchmarking_data$annualized_spend, INDEX = benchmarking_data$provider_vendor, FUN = sum)
+provider_brand_data_ann_spend <- data.frame(rownames(provider_brand_data_ann_spend), provider_brand_data_ann_spend)
+colnames(provider_brand_data_ann_spend) <- c("provider_vendor", "provider_vendor_total_ann_spend")
+benchmarking_data <- merge(x=benchmarking_data,y=provider_brand_data_ann_spend,by="provider_vendor")
+
+provider_brand_data_ann_units <- tapply(X = benchmarking_data$annualized_units, INDEX = benchmarking_data$provider_vendor, FUN = sum)
+provider_brand_data_ann_units <- data.frame(rownames(provider_brand_data_ann_units), provider_brand_data_ann_units)
+colnames(provider_brand_data_ann_units) <- c("provider_vendor", "provider_vendor_total_ann_units")
+benchmarking_data <- merge(x=benchmarking_data,y=provider_brand_data_ann_units,by="provider_vendor")
+
+vendor_volume_vector <- c("provider","brand","provider_vendor_total_ann_spend")
+if (STAND_UNITS==TRUE)
+{vendor_volume_vector <- c("provider","brand","provider_vendor_total_ann_units")}
+vendor_volume <- unique(benchmarking_data[,vendor_volume_vector])
+vendor_volume <- cast(vendor_volume,provider ~ brand, sum, value=vendor_volume_vector[3])
+
+benchmarking_data_ann_spend <- unique(benchmarking_data[,c("provider","all_provider_total_annualized_spend","all_provider_total_annualized_units")])
+colnames(benchmarking_data_ann_spend)[2] <- "annualized_spend"
+colnames(benchmarking_data_ann_spend)[3] <- "annualized_units"
+benchmarking_data_ann_spend <- merge(x=benchmarking_data_ann_spend,y=provider_weighted_percentiles,by="provider")
+
+all_standardization_data <- merge(x=benchmarking_data_ann_spend,y=vendor_share,by=c("provider","standardization_index"))
+
+
+#generate tables for each vendor in VENDOR_LIST
+
+i=1
+for(i in 1:length(VENDOR_LIST)){
+  vendor_share_cut <- vendor_share[,c("provider",VENDOR_LIST[i])]
+  colnames(vendor_share_cut)[2] <- paste(VENDOR_LIST[i],"share")
+  brand_percentiles_spend_cut <- brand_percentiles[,c("provider",VENDOR_LIST[i])]
+  colnames(brand_percentiles_spend_cut)[2] <- paste(VENDOR_LIST[i],"price percentile")
+  vendor_volume_cut <- vendor_volume[,c("provider",VENDOR_LIST[i])]
+  colnames(vendor_volume_cut)[2] <- paste(VENDOR_LIST[i],"volume")
+  d.frame <- as.data.frame(merge(x=vendor_share_cut,y=brand_percentiles_spend_cut,by="provider"))
+  d.frame <- merge(x=d.frame,y=vendor_volume_cut,by="provider")
+  plot(d.frame[,2],d.frame[,3],type="p",xlab=paste(VENDOR_LIST[i],"vendor share"),ylab=paste(VENDOR_LIST[i],"weighted percentile"))
+  newname <- paste(VENDOR_LIST[i], "_Standardization.csv",sep="")
+  d.frame <- d.frame[order(d.frame[,2],na.last=TRUE, decreasing = TRUE),]
+  write.csv(d.frame, paste(PATH, "Benchmarking_Output","Standardization_Output",newname, sep = "/"), row.names = TRUE)
+  
+  #bubble chart
+  share_label <- paste(VENDOR_LIST[i],"share")
+  vol_label <- paste(VENDOR_LIST[i],"volume")
+  bubble<-d.frame
+  bubble<-bubble[which(!bubble[,4]==0),]
+  std_provider_share <- vendor_share_cut[which(vendor_share_cut$provider == PROVIDER_NAME),]
+  share_num <- std_provider_share[1,2]
+  std_provider_price <- brand_percentiles_spend_cut[which(brand_percentiles_spend_cut$provider ==PROVIDER_NAME),]
+  price_num <-std_provider_price[1,2]
+  std_provider_vol <- vendor_volume_cut[which(vendor_volume_cut$provider == PROVIDER_NAME),]
+  vol_num <- std_provider_vol[1,2]
+  radius <- sqrt( bubble[,4]/ pi )
+  symbols(bubble[,2], bubble[,3], circles=radius, inches=0.35, fg="black", bg=ifelse(bubble[,1]==PROVIDER_NAME,"gold",ifelse(bubble[,3] < price_num,ifelse(bubble[,2] < share_num,ifelse(bubble[,4] < vol_num,"lightgreen","lightcyan"),"lightcyan"),"lightcyan")), xlab=paste(VENDOR_LIST[i],"Vendor Share (%)"), ylab=paste(VENDOR_LIST[i],"Price Percentile (%)"), xaxt = "n", yaxt = "n")
+  axis(1,at=pretty(bubble[,2]),labels = pretty(bubble[,2])*100, las=TRUE)
+  axis(2,at=pretty(bubble[,3]),labels = pretty(bubble[,3])*100, las=TRUE)
+  #  abline(fit<-lm(bubble[,3]~bubble[,2]))
+  title(main=paste(VENDOR_LIST[i]," Prices, Market Share, and Volume"))
+  legend("topright", bty="n", cex=0.75, legend=bquote(R^2 == .(format(summary(fit)$adj.r.squared, digits=2))))
+  #  text(bubble[,2], bubble[,3]+.09, PROVIDER_LABEL, cex=.75, col=ifelse(bubble[,1]==PROVIDER_NAME,"black",rgb(0,0,0,0)))
+  
+  #boxplot - SHARE
+  box<-bubble
+  box<-box %>% mutate(bin=cut(box[,2],breaks = c(0,0.75,0.8,0.85,.9,.95,1), labels = c("0-75","75-80","80-85","85-90","90-95","95-100")))
+  bx<-boxplot(box[,3]~box[,5],box,xlab=paste(VENDOR_LIST[i],"Vendor Share (%)"), ylab=paste(VENDOR_LIST[i],"Price Percentile (%)"),yaxt = "n")
+  axis(2,at=pretty(box[,3]),labels = pretty(box[,3])*100, las=TRUE)
+  rect(1:4-.4, bx$stats[2,], 1:4+.4, bx$stats[3,], col="cornflowerblue")
+  rect(1:4-.4, bx$stats[3,], 1:4+.4, bx$stats[4,], col="midnightblue")
+  
+
+  assign(VENDOR_LIST[i],d.frame)
+  
+}
+
+#create outputs for vendor volume, brand percentiles based on spend, annualized volume, and vendor share so that the user can make custom charts
+write.csv(vendor_volume,paste(PATH,"Benchmarking_Output","Standardization_Output","Volume_By_Vendor.csv", sep = "/"), row.names = TRUE)
+write.csv(all_standardization_data, paste(PATH, "Benchmarking_Output","Standardization_Output", "All_Standardization_Data.csv", sep = "/"), row.names = TRUE)
+write.csv(benchmarking_data_ann_spend, paste(PATH, "Benchmarking_Output","Standardization_Output", "Annualized_Spend.csv", sep = "/"), row.names = TRUE)
+write.csv(vendor_share, paste(PATH, "Benchmarking_Output","Standardization_Output", "Vendor_Share.csv", sep = "/"), row.names = TRUE)

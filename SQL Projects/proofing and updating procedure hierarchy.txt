@@ -1,0 +1,48 @@
+
+---ensure there are no duplicates
+select log_id,count(*) from (
+  select distinct log_id, category from case_classification
+) a
+group by log_id having count(*)>1;
+
+
+---check that the procedure counts look good
+select procedure_name, count(distinct log_id) from (
+  SELECT
+    a.*,
+    b.procedure_name procedure_name
+  FROM case_classification a
+    JOIN procedure_hierarchy_map b ON a.category = b.id
+  WHERE category IS NOT NULL
+) a group by procedure_name
+;
+
+
+---add log_ids to procedure_hierarchy_logid table if they did not already exist
+---replace provider id
+insert into procedure_hierarchy_logid (log_id,procedure_id,provider_id,added,added_by)
+  (select distinct log_id,category,provideridneeded,current_timestamp,19029 from case_classification a
+      where log_id not in (select log_id from procedure_hierarchy_logid where provider_id = provideridneeded) AND
+        category is not null
+  );
+
+---check if any log_id -> procedure_ids need to change
+select distinct a.log_id,b.log_id,a.category,b.procedure_id from case_classification a
+join procedure_hierarchy_logid b
+  on a.log_id = b.log_id
+where a.category <> b.procedure_id;
+
+---investigate and or use update statements to fix this
+update procedure_hierarchy_logid set procedure_id = a.category
+from (select distinct log_id,category from case_classification) a where
+  a.log_id = procedure_hierarchy_logid.log_id and 
+  a.provider_id = procedure_hierarchy_logid.provider_id and 
+  a.log_id in
+(
+select c.log_id from (
+  select distinct a.log_id,b.log_id heirarchy_logid,a.category,b.procedure_id from case_classification a
+join procedure_hierarchy_logid b
+  on a.log_id = b.log_id
+where a.category <> b.procedure_id
+)  c
+) ;

@@ -1,0 +1,226 @@
+create temp table bench_data as (select * from benchmarking);
+
+-----calculate recent prices
+update bench_data set price_per_each2 = a.price_per_each
+FROM
+
+  (select *, rank() over (partition by groupname,typename,product,brand,matched_catalog_number_stripped order by po_date desc) as rankedtest
+   from bench_data
+  ) a
+where
+  rankedtest =1 and
+  bench_data.provider_id = a.provider_id
+and bench_data.product = a.product
+and bench_data.typename = a.typename
+and bench_data.groupname = a.groupname
+and bench_data.brand = a.brand
+and bench_data.matched_catalog_number_stripped = a.matched_catalog_number_stripped;
+
+
+
+------- standardization analysis--------------------
+
+Drop table if exists finaltable;
+
+CREATE TEMP TABLE finaltable AS
+  (
+  SELECT
+    bench_data.brand,bench_data.provider_name,Vendor_Sum_Annualized,
+    (extended_cost / Annualization_Index) / Vendor_Sum_Annualized Vendor_Weight,
+   -- ((extended_cost / Annualization_Index) / Vendor_Sum_Annualized) * percent_calcs.percent_rank Weighted_Percentile,
+    ((extended_cost / Annualization_Index) / Vendor_Sum_Annualized) * percent_calcs_recent.percent_rank_recent Weighted_Percentile_recent,
+   ((extended_cost / Annualization_Index) / Vendor_Sum_Annualized) * percent_calcs_product_recent.percent_rank_product_recent Weighted_Percentile_product_recent,
+  --  ((extended_cost / Annualization_Index) / Vendor_Sum_Annualized) * percent_calcs_product.percent_rank_product Weighted_Percentile_product,
+    Vendor_Sum / Provider_Sum                          Market_Share,
+--    percent_rank,
+    provider_id
+
+  FROM bench_data
+--table 1 create percentiles for each row based on sku and product recent prices
+--sku recent price percentile join
+    JOIN
+    (SELECT DISTINCT
+       percent_rank()
+       OVER (
+         PARTITION BY groupname, typename, brand, product, matched_catalog_number_stripped
+         ORDER BY price_per_each2 ) percent_rank_recent,
+       id
+     FROM
+       bench_data bench
+       JOIN (SELECT (row_number() over (order by id)) as numbers FRom db_15582_public.po_data LIMIT 10000) b
+         ON bench.totaleaches >= b.numbers) percent_calcs_recent
+
+       ON percent_calcs_recent.id=bench_data.id
+--product recent price percentile join
+    JOIN
+    (SELECT DISTINCT
+       percent_rank()
+       OVER (
+         PARTITION BY groupname, typename, brand, product
+         ORDER BY price_per_each2) percent_rank_product_recent,
+       id
+     FROM
+       bench_data bench
+       JOIN (SELECT (row_number() over (order by id)) as numbers FRom db_15582_public.po_data LIMIT 10000) b
+         ON bench.totaleaches >= b.numbers) percent_calcs_product_recent
+       ON percent_calcs_product_recent.id=bench_data.id
+
+
+
+    JOIN
+-- table 3 generate brand and provider totals
+    (SELECT
+       vendorsums.provider_name,
+       vendorsums.brand,
+       Vendor_Sum,
+       Provider_Sum,
+       Annualization_Index,
+       Vendor_Sum / Annualization_Index   AS Vendor_Sum_Annualized,
+       Provider_Sum / Annualization_Index AS Provider_Sum_Annualized
+     FROM
+    --subtable 1 vendor sums
+       (SELECT
+          provider_name,
+          brand,
+          sum(extended_cost) Vendor_Sum
+        FROM
+          bench_data
+        GROUP BY provider_name, brand) vendorsums
+    --subtable 2 provider sums
+       JOIN
+       (SELECT
+          provider_name,
+          sum(extended_cost) Provider_Sum
+        FROM bench_data
+        GROUP BY provider_name) providersums
+         ON vendorsums.provider_name = providersums.provider_name
+
+       JOIN
+    --subtable 3 annualization index
+       (SELECT
+          provider_name,
+          (extract(YEAR FROM max(po_date)) * 12 + extract(MONTH FROM max(po_date)) -
+           extract(YEAR FROM min(po_date)) * 12 - extract(MONTH FROM min(po_date))
+           + 1) / 12.0 Annualization_Index,
+          min(po_date) Min_Date,
+          max(po_date) Max_Date
+        FROM bench_data
+        GROUP BY provider_name) annualiztion
+         ON providersums.provider_name = annualiztion.provider_name) summarystats
+
+      ON bench_data.provider_name = summarystats.provider_name AND
+        bench_data.brand=summarystats.brand
+) ;
+SELECT * ,
+
+
+  CASE
+    WHEN provider_id in (select provider_id from tmp_variables)  Then upper(alias)
+    WHEN
+        provider_spend > Vendor_Sum_Annualized
+        AND provider_market_share > "vendor market share"
+        AND provider_prices > "vendor price percentile"
+        THEN 'Less spend, less market share, lower prices'
+    ELSE 'Other providers' END Spend_Type,
+
+  CASE
+    WHEN provider_id in (select provider_id from tmp_variables)  Then 1
+    WHEN
+        provider_spend / Vendor_Sum_Annualized between .5 and 1.25
+        AND provider_prices > "vendor price percentile"
+        THEN 1
+    ELSE 0 END provider_similar_filter
+
+
+FROM
+(
+
+SELECT brand,"vendor price percentile",vendor_sum_annualized,provider_id,
+CASE
+     WHEN provider_id in (select provider_id from tmp_variables)  Then upper(acct_provider.alias)
+     WHEN region = 'MW' THEN 'Midwest ' || type || ' ' || row_number() over (partition by region, type order by acct_provider.name)
+     WHEN region = 'W' THEN 'West ' || type || ' ' || row_number() over (partition by region, type order by acct_provider.name)
+     WHEN region = 'S' THEN 'South ' || type || ' ' || row_number() over (partition by region, type order by acct_provider.name)
+     WHEN region = 'NE' THEN 'Northeast ' || type || ' ' || row_number() over (partition by region, type order by acct_provider.name)
+     ELSE 'error'
+     END  alias
+, market_share + (provider_id*.000001) AS "Vendor Market Share",
+  first_value(vendor_sum_annualized) OVER(PARTITION BY brand ORDER BY main_provider_id DESC  rows between unbounded preceding and current row) AS provider_spend,
+  first_value(market_share) OVER(PARTITION BY brand ORDER BY main_provider_id DESC  rows between unbounded preceding and current row) provider_market_share,
+  first_value("vendor price percentile") OVER(PARTITION BY brand ORDER BY main_provider_id DESC  rows between unbounded preceding and current row) as provider_prices,
+  'Recent Prices - SKU' as price_type
+From (
+--subquery
+SELECT brand,
+provider_name,Market_Share,
+      sum(Weighted_Percentile_recent) "Vendor Price Percentile",Vendor_Sum_Annualized,provider_id,
+        CASE WHEN provider_id in (select provider_id from tmp_variables)  Then 1
+      ELSE 0 END main_provider_id
+FROM finaltable
+GROUP BY provider_name,brand,Market_Share,Vendor_Sum_Annualized,provider_id) aggtable
+JOIN db_15582_public.acct_provider on aggtable.provider_id = acct_provider.id
+) a
+where brand in (select brand
+                    from bench_data
+                    group by brand
+                    having sum(extended_cost)/(select sum(extended_cost) from bench_data) >.005)
+
+UNION ALL
+
+SELECT * ,
+
+
+  CASE
+    WHEN provider_id in (select provider_id from tmp_variables)  Then upper(alias)
+    WHEN
+        provider_spend > Vendor_Sum_Annualized
+        AND provider_market_share > "vendor market share"
+        AND provider_prices > "vendor price percentile"
+        THEN 'Less spend, less market share, lower prices'
+    ELSE 'Other providers' END Spend_Type,
+
+  CASE
+    WHEN provider_id in (select provider_id from tmp_variables)  Then 1
+    WHEN
+        provider_spend / Vendor_Sum_Annualized between .5 and 1.25
+        AND provider_prices > "vendor price percentile"
+        THEN 1
+    ELSE 0 END provider_similar_filter
+
+
+FROM
+(
+
+SELECT brand,"vendor price percentile",vendor_sum_annualized,provider_id,
+CASE
+     WHEN provider_id in (select provider_id from tmp_variables)  Then upper(acct_provider.alias)
+     WHEN region = 'MW' THEN 'Midwest ' || type || ' ' || row_number() over (partition by region, type order by acct_provider.name)
+     WHEN region = 'W' THEN 'West ' || type || ' ' || row_number() over (partition by region, type order by acct_provider.name)
+     WHEN region = 'S' THEN 'South ' || type || ' ' || row_number() over (partition by region, type order by acct_provider.name)
+     WHEN region = 'NE' THEN 'Northeast ' || type || ' ' || row_number() over (partition by region, type order by acct_provider.name)
+     ELSE 'error'
+     END  alias
+, market_share + (provider_id*.000001) AS "Vendor Market Share",
+  first_value(vendor_sum_annualized) OVER(PARTITION BY brand ORDER BY main_provider_id DESC  rows between unbounded preceding and current row) AS provider_spend,
+  first_value(market_share) OVER(PARTITION BY brand ORDER BY main_provider_id DESC  rows between unbounded preceding and current row) provider_market_share,
+  first_value("vendor price percentile") OVER(PARTITION BY brand ORDER BY main_provider_id DESC  rows between unbounded preceding and current row) as provider_prices,
+
+    'Recent Prices - Product' as price_type
+From (
+--subquery
+SELECT brand,
+provider_name,Market_Share,
+      sum(Weighted_Percentile_product_recent) "Vendor Price Percentile",Vendor_Sum_Annualized,provider_id,
+        CASE WHEN provider_id in (select provider_id from tmp_variables)  Then 1
+      ELSE 0 END main_provider_id
+FROM finaltable
+GROUP BY provider_name,brand,Market_Share,Vendor_Sum_Annualized,provider_id) aggtable
+JOIN db_15582_public.acct_provider on aggtable.provider_id = acct_provider.id
+) a
+where brand in (select brand
+                    from bench_data
+                    group by brand
+                    having sum(extended_cost)/(select sum(extended_cost) from bench_data) >.005)
+
+
+

@@ -1,0 +1,271 @@
+drop table if exists matching_table;
+create temp table matching_table as (
+
+
+  SELECT DISTINCT
+      o.*,
+      a.productID,
+      a.productName,
+      a.brandID,
+      a.brandName,
+      a.groupID,
+      a.groupName,
+      a.typeID,
+      a.typeName,
+      CASE
+           --category 1
+           when a.typeID in (1,2,3,4,5,6) then 0
+           when a.typeID in (7,8,9,10) then 1
+           when a.typeID in (11,12,13) then 2
+           when a.typeID in (14,15) then 3
+           when a.typeID in (19,20,21) then 4
+           when a.typeID in (22,23,24,25) then 5
+           when a.typeID in (26,27,28) then 6
+
+           else typeid
+           end as combo,
+      o.price_per_each AS price_per_each_latest
+      ,o.price_per_each * o.eaches AS extended_cost
+    FROM ordata o
+      INNER JOIN
+      (SELECT DISTINCT
+         po.catalog_stripped,
+         po.id potermid,
+         g.id   AS groupID,
+         g.name AS groupName,
+         t.id    AS typeID,
+         t.name  AS typeName,
+         po.brand,
+         p.id    AS productID,
+         p.name  AS productName,
+         b.id    AS brandID,
+         b.name  AS brandName
+       FROM
+         purchaseorder po
+       LEFT JOIN type t
+         ON po.group_type_id = t.id
+       LEFT JOIN group g
+         ON g.id = t.group_id
+       LEFT JOIN product p
+         ON p.id = po.product_id
+       LEFT JOIN brand b
+         ON b.id = p.brand_id
+         where po.deleted IS NULL AND catalog_stripped <> ''
+      ) a
+        ON (lower(a.catalog_stripped) = lower(o.manufacturer_catalog_number_stripped) AND
+           POSITION(upper(a.brand) IN upper(o.manufacturer_name)) <> 0)
+          and o.manufacturer_catalog_number <> ''
+);
+
+
+drop table if exists procedure_agg;
+create temp table procedure_agg as (
+  SELECT log_id,groupid, combo, groupID || ' - ' || eaches groupeaches,combo || ' - ' || eaches comboeaches from (
+  SELECT log_id,groupid,combo,cast(sum(eaches) as int) eaches
+    from
+matching_table
+
+ group by log_id, groupid, combo )a );
+
+
+drop table if exists case_classification;
+create temp table
+case_classification as (
+
+SELECT
+  *,
+  CASE
+WHEN sum(CASE WHEN comboeaches in (catalognumber) then 1 end) over (partition by log_id)>0  and sum(CASE WHEN comboeaches in ('100201 - 4','100201 - 3','100201 - 2','100201 - 5','1765 - 4','1765 - 5','1765 - 3','1765 - 2') then 1 end) over (partition by log_id)>0 and sum(CASE WHEN combo in (100200,100209) then 1 end) over (partition by log_id)>0 and sum(CASE WHEN groupid in (147,169,155,152) then 1 end) over (partition by log_id)>0 then 414
+#rest of procedure hierarchy
+    end as category
+
+from procedure_agg
+);
+
+
+
+
+--case summary by group type eaches
+WITH procedure_agg2 AS (
+SELECT surgeon,
+       a.log_id,
+       eaches,
+       extended_cost,
+       brandname ,
+       groupname,
+       typename,
+       a.procedure_name,
+       rank() over(partition by a.log_id order by groupname,typename desc)
+from (
+
+  SELECT
+       surgeon,
+       a.log_id,
+       sum(eaches) eaches,
+       sum(b.extended_cost) extended_cost,
+       brandname,
+       b.groupname,
+       b.typename,
+       c.procedure_name from
+  (select distinct log_id,category from case_classification) a
+right join matching_table b
+on a.log_id=b.log_id
+left JOIN procedure_hierarchy_map c on a.category=c.id
+where b.groupID in (
+1,2,3
+) group by surgeon,a.log_id,brandname,groupname,typename,c.procedure_name  ) a
+
+
+order by a.log_id)
+
+
+SELECT a.procedure_name ,count(distinct a.log_id),
+    a.groupname,b.groupname AS "groupname2",c.groupname AS "groupname3",d.groupname AS "groupname4",
+      e.groupname AS "groupname5",f.groupname AS "groupname6",g.groupname AS "groupname7",h.groupname AS "groupname8",i.groupname AS "groupname9",j.groupname AS "groupname10",k.groupname AS "groupname11",
+      a.typename,b.typename as "typename2", c.typename as "typename3",d.typename AS "typename4",
+      e.typename AS "typename5",f.typename AS "typename6",g.typename AS "typename7",h.typename AS "typename8",i.typename AS "typename9",j.typename AS "typename10",k.typename AS "typename11",
+      a.eaches,b.eaches as "eaches2", c.eaches as "eaches3",d.eaches AS "eaches4",
+      e.eaches AS "eaches5",f.eaches AS "eaches6",g.eaches AS "eaches7",h.eaches AS "eaches8",i.eaches AS "eaches9",j.eaches AS "eaches10",k.eaches AS "eaches11"
+from (SELECT * From procedure_agg2 where rank=1) a
+
+left join (select * from procedure_agg2 where rank=2) b on a.log_id=b.log_id
+left join (select * from procedure_agg2 where rank=3) c on a.log_id=c.log_id
+left join (select * from procedure_agg2 where rank=4) d on a.log_id=d.log_id
+left join (select * from procedure_agg2 where rank=5) e on a.log_id=e.log_id
+left join (select * from procedure_agg2 where rank=6) f on a.log_id=f.log_id
+left join (select * from procedure_agg2 where rank=7) g on a.log_id=g.log_id
+left join (select * from procedure_agg2 where rank=8) h on a.log_id=h.log_id
+left join (select * from procedure_agg2 where rank=9) i on a.log_id=i.log_id
+left join (select * from procedure_agg2 where rank=10) j on a.log_id=j.log_id
+left join (select * from procedure_agg2 where rank=11) k on a.log_id=k.log_id
+
+group by      a.procedure_name,a.brandname,
+        a.typename,b.typename,c.typename,d.typename,e.typename,f.typename,g.typename,h.typename,i.typename,j.typename,k.typename,
+        a.groupname,b.groupname,c.groupname,d.groupname,e.groupname,f.groupname,g.groupname,h.groupname,i.groupname,j.groupname,k.groupname,
+        a.eaches,b.eaches,c.eaches,d.eaches,e.eaches,f.eaches,g.eaches,h.eaches,i.eaches,j.eaches,k.eaches
+order by count(distinct a.log_id) desc
+;
+
+
+
+
+SELECT b.*,a.category,c.procedure_name,groupID || ' - ' || cast(eaches as int) groupeaches,combo || ' - ' || cast(eaches as int) comboeaches
+FROM (select distinct log_id,category from case_classification) a
+right join matching_table b
+on a.log_id=b.log_id
+left JOIN procedure_hierarchy_map c on a.category=c.id
+where b.groupID in (
+1,2,3
+);
+
+select covered,not_covered,covered/not_covered percent_covered from
+  (SELECT 1 as joined, sum(b.extended_cost) as covered
+FROM (select distinct log_id,category from case_classification) a
+right join matching_table b
+on a.log_id=b.log_id
+left JOIN procedure_hierarchy_map c on a.category=c.id
+where b.groupID in (
+1,2,3) and a.category is not null) a
+
+join
+
+
+(SELECT 1 as joined, sum(b.extended_cost) as not_covered
+FROM (select distinct log_id,category from case_classification) a
+right join matching_table b
+on a.log_id=b.log_id
+left JOIN procedure_hierarchy_map c on a.category=c.id
+where b.groupID in (
+1,2,3
+)) b
+on a.joined=b.joined ;
+
+
+select new_procedure, count(distinct (a.log_id)), sum(extended_cost) from (
+  SELECT
+    b.*,
+    a.category,
+    c.procedure_name as new_procedure
+  FROM (SELECT DISTINCT
+          log_id,
+          category
+        FROM case_classification) a
+    RIGHT JOIN matching_table b
+      ON a.log_id = b.log_id
+    LEFT JOIN procedure_hierarchy_map c ON a.category = c.id
+  WHERE b.groupID IN (
+1,2,3)
+) a  group by new_procedure ;
+
+
+---case summary with one row for logid
+WITH procedure_agg2 AS (
+SELECT surgeon,
+       a.log_id,
+       eaches,
+       extended_cost,
+       brandname ,
+       groupname,
+       typename,
+      productname,
+       a.procedure_name,
+  idn_procedure,
+       rank() over(partition by a.log_id order by groupname,typename desc)
+from (
+
+  SELECT
+       surgeon,
+       a.log_id,
+       sum(eaches) eaches,
+       sum(b.extended_cost) extended_cost,
+       brandname,
+       b.groupname,
+       b.typename,
+       b.productname,
+       c.procedure_name,
+      b.procedure_name as idn_procedure
+  from
+  (select distinct log_id,category from case_classification) a
+right join matching_table b
+on a.log_id=b.log_id
+left JOIN procedure_hierarchy_map c on a.category=c.id
+where b.groupID in (
+1,2,3
+) group by b.procedure_name, surgeon,c.procedure_name ,a.log_id,brandname,groupname,typename,b.productname,c.procedure_name  ) a
+
+
+order by a.log_id)
+
+
+SELECt a.log_id,a.procedure_name,a.idn_procedure,
+
+      a.productname,b.productname AS "productname2",c.productname AS "productname3",d.productname AS "productname4",
+      e.productname AS "productname5",f.productname AS "productname6",g.productname AS "productname7",h.productname AS "productname8",i.productname AS "productname9",j.productname AS "productname10",k.productname AS "productname11",
+      a.groupname,b.groupname AS "groupname2",c.groupname AS "groupname3",d.groupname AS "groupname4",
+      e.groupname AS "groupname5",f.groupname AS "groupname6",g.groupname AS "groupname7",h.groupname AS "groupname8",i.groupname AS "groupname9",j.groupname AS "groupname10",k.groupname AS "groupname11",
+      a.typename,b.typename as "typename2", c.typename as "typename3",d.typename AS "typename4",
+      e.typename AS "typename5",f.typename AS "typename6",g.typename AS "typename7",h.typename AS "typename8",i.typename AS "typename9",j.typename AS "typename10",k.typename AS "typename11",
+      a.eaches,b.eaches as "eaches2", c.eaches as "eaches3",d.eaches AS "eaches4",
+      e.eaches AS "eaches5",f.eaches AS "eaches6",g.eaches AS "eaches7",h.eaches AS "eaches8",i.eaches AS "eaches9",j.eaches AS "eaches10",k.eaches AS "eaches11"
+
+from (SELECT * From procedure_agg2 where rank=1) a
+
+left join (select * from procedure_agg2 where rank=2) b on a.log_id=b.log_id
+left join (select * from procedure_agg2 where rank=3) c on a.log_id=c.log_id
+left join (select * from procedure_agg2 where rank=4) d on a.log_id=d.log_id
+left join (select * from procedure_agg2 where rank=5) e on a.log_id=e.log_id
+left join (select * from procedure_agg2 where rank=6) f on a.log_id=f.log_id
+left join (select * from procedure_agg2 where rank=7) g on a.log_id=g.log_id
+left join (select * from procedure_agg2 where rank=8) h on a.log_id=h.log_id
+left join (select * from procedure_agg2 where rank=9) i on a.log_id=i.log_id
+left join (select * from procedure_agg2 where rank=10) j on a.log_id=j.log_id
+left join (select * from procedure_agg2 where rank=11) k on a.log_id=k.log_id
+
+group by a.productname,b.productname,c.productname,d.productname,e.productname,f.productname,g.productname,h.productname,i.productname,j.productname,k.productname,
+        a.procedure_name,
+        a.typename,b.typename,c.typename,d.typename,e.typename,f.typename,g.typename,h.typename,i.typename,j.typename,k.typename,
+        a.groupname,b.groupname,c.groupname,d.groupname,e.groupname,f.groupname,g.groupname,h.groupname,i.groupname,j.groupname,k.groupname,
+        a.eaches,b.eaches,c.eaches,d.eaches,e.eaches,f.eaches,g.eaches,h.eaches,i.eaches,j.eaches,k.eaches,a.log_id,a.procedure_name,
+  a.idn_procedure
+;
+
