@@ -1,0 +1,228 @@
+
+<script>
+  var margin = {
+      top: 40,
+      right: 20,
+      bottom: 70,
+      left: 100
+    },
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+  var x = d3.scale.linear()
+    .domain([0, 1])
+    .range([0, width]);
+  var y = d3.scale.linear()
+    .domain([0, 1])
+    .range([height, 0]);
+  var data = dataset.content;
+  var z = d3.scale.linear()
+    .domain(
+      d3.extent(data,function(d){
+        return d.vendor_sum_annualized
+      })
+    )
+    .range([5,20]);
+ var color = d3.scale.ordinal()
+		//this assumes you have 3 groups of data//each of the domains corresponds to a color set
+        .domain(["data1", "data2", "data3","data4","data5","data6"])
+        .range(["#465AFB", "#FFC033", "#FF6666","#33CC99","#121270","#2EA1F5"]);
+    
+  var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+    .ticks(10, "%");
+  var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .ticks(10, "%")
+    .tickSize(20);
+  var yGridlines = d3.svg.axis()
+                    .scale(y)
+                    .tickSize(-width,0,0)
+                    .tickFormat("")
+                    .orient("left");
+
+var div = d3.select("body").append("div")	
+    .attr("class", "tooltip")				
+    .style("opacity", 0);
+var div2 =   div.append("div2")
+    .attr("class","tooltip")
+    .style("opacity",0);
+
+  var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+  
+
+
+ svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height + ")")
+    .call(xAxis)
+ svg.select(".x.axis")
+    .append("text")
+    .attr("transform","translate(" + width/2 + "," + 40 + ")")
+    .classed("x axis-label",true)
+    .text("Vendor Market Share");
+  svg.append("g")
+    .attr("class", "y axis")
+    .call(yAxis)
+  svg.select(".y.axis")
+    .append("text")
+    .classed("y axis-label",true)
+    .attr("transform", "translate(" + -65 + "," + height/2 + ") rotate(-90)")
+    .text("Vendor Price Percentile (100% = Higher prices)");
+  svg.append("g")
+    .append("text")
+    .classed("chart-header",true)
+    .attr("transform","translate(0," + -10  + ")")
+    .text("Market Share, Pricing and Spend")
+  svg.selectAll(".point")
+    .data(data)
+    .enter().append("circle")
+    .classed("point", true)
+
+    ;
+
+ svg.selectAll(".point")
+    .attr("r", 
+    function(d) {return z(d.vendor_sum_annualized)}
+      )
+    .attr("cx", function(d) {
+      return x(d.vendor_market_share);
+      console.log(x(d.vendor_market_share));
+    })
+    .attr("cy", function(d) {
+      return y(d.vendor_price_percentile);
+    })
+    .style("fill",function(d)
+    { return color(d.brand);
+    })
+    .attr("class",function(d){
+      return d.brand.replace(/ /g,"").replace(".","");
+
+    })
+    .classed("point",true)
+    .on("mouseover", function(d){
+       d3.selectAll("."+d.brand.replace(/ /g,"").replace(".",""))
+        .transition()
+        .style("opacity",1)
+      var str = d.brand + " market share: " + d.vendor_market_share.toFixed(2)*100 + "% ";
+		  d3.select(".chart-header").text(str).transition();
+		  div.transition()		
+                .duration(200)		
+                .style("opacity", .9);
+            div.html(d.brand + " market share: " + d.vendor_market_share.toFixed(2)*100 + "% ")	
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");
+      d3.select("div>div").transition()
+            .duration(200).style("opacity",.9)
+            .html("skdlfjsdlkfjdsklsfdjlk")	
+                .style("left", (d3.event.pageX+50) + "px")		
+                .style("top", (d3.event.pageY) + "px");
+		})
+		.on("mouseout", function(d){
+       d3.selectAll("."+d.brand.replace(/ /g,"").replace(".",""))
+        .transition()
+        .style("opacity",0.1);
+      d3.select(".chart-header").text("Market Share, Pricing and Spend").transition();
+		})
+;
+    
+  svg.selectAll(".point").
+      data(data).exit().remove();
+
+ 
+    
+
+  // });
+
+</script>
+<style>
+  body,html{
+	margin: 0;
+	padding: 0;
+	font-family: "Arial", sans-serif;
+	font-size: 0.95em;
+	text-align: center;
+}
+#chart{
+	background-color: #F5F2EB;
+	border: 1px solid #CCC;
+}
+.bar{
+	fill: purple;
+	shape-rendering: crispEdges;
+}
+.bar-label{
+	fill: black;
+	text-anchor: middle;
+	font-size: 18px;
+}
+.axis path,
+.axis line{
+	fill: none;
+	stroke: #000;
+	shape-rendering: crispEdges;
+}
+.gridline path,
+.gridline line{
+	fill: none;
+	stroke: #ccc;
+	shape-rendering: crispEdges;
+}
+.trendline {
+	fill: none;
+	stroke: #ccc;
+	stroke-width: 4px;
+}
+.area{
+	opacity: 0.25;
+	fill: #ccc;
+	stroke: #ccc;
+	stroke-width: 1px;
+}
+
+.point{
+  opacity: 0.1;
+}
+
+.axis-label{
+  text-anchor: middle;
+        font-family: "Graphik Web", "Source Sans Pro", sans-serif
+      color: #4d4d4d;
+    font-size: 1.1em;
+    font-style: italic;
+    letter-spacing: 0px;
+   text-rendering: optimizeLegibility;
+}
+
+.chart-header{
+      font-family: 'Graphik Web', sans-serif;
+      color: #4d4d4d;
+    font-size: 20px;
+    font-weight: 400;
+    letter-spacing: 0px;
+}
+div.tooltip {	
+    position: absolute;			
+    text-align: center;			
+    width: 100px;					
+    height: 60px;					
+    padding: 2px;				
+    font: 12px sans-serif;		
+    background: lightsteelblue;	
+    pointer-events: none;			
+    border:solid 1px #bdbdbd;
+  border-radius: 2px;
+  background-color: white;
+  box-shadow: 0px 2px 2px 0px rgba(204, 204, 204, 0.6);
+  -moz-box-shadow: 0px 2px 2px 0px rgba(204, 204, 204, 0.6);
+  -webkit-box-shadow: 0px 2px 2px 0px rgba(204, 204, 204, 0.6);
+    border: 1px solid #ddd;
+  background-color: white;
+  color: #4d4d4d;
+}
+</style>
