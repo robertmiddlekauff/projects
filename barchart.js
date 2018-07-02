@@ -1,4 +1,3 @@
-import d3_selection_multi from 'd3-selection-multi/build/d3-selection-multi.js';
 
 export const stackedBarChartTable = class StackedBarChartTable {
     constructor(selector, columns) {
