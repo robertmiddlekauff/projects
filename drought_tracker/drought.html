@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Drought Tiing</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="dc.css"/>
+</head>
+<body>
+
+<div class="container">
+    <div id="select-container"></div>
+    <h3>Percentage of area in drought in Cook County, IL</h3>
+    <h4>Select a value on the left to select the severity of drought present.</h4>
+<div id="drought"></div>
+<p>
+    Data came from https://droughtmonitor.unl.edu/
+</p>
+<script type="text/javascript" src="d3.min.js"></script>
+    <script type="text/javascript" src="d3-time.js"></script>
+    <script type="text/javascript" src="d3-time-format.js"></script>
+<script type="text/javascript" src="crossfilter.min.js"></script>
+<script type="text/javascript" src="dc.min.js"></script>
+<script type="text/javascript">
+
+
+
+var lineChart = new dc.LineChart("#drought");
+var select = new dc.SelectMenu('#select-container')
+d3.csv("drought.csv").then(function(drought) {
+    //format dates
+    drought.forEach(function(d) {
+        d.date = new Date(d.date);
+    });
+
+console.log(drought);
+    //data variables
+  const cross               = crossfilter(drought),
+      dim        = cross.dimension(function(d) {return +d.date;}),
+      typeDim        = cross.dimension(d => d.type),
+      droughtGroup       = dim.group().reduceSum(d => d.level),
+      minDate = dim.bottom(1)[0].date;
+      maxDate = dim.top(1)[0].date;
+
+    const chartRender = (chart, group) => {
+        return   chart
+    .width(1000)
+    .height(480)
+    .x(d3.scaleTime().domain([minDate,maxDate]))
+    .brushOn(false)
+    .yAxisLabel("Percentage of the county in drought")
+    .xAxisLabel("Date (values are calculated weekly)")
+    .dimension(dim)
+    .group(group)
+    .curve(d3.curveStepBefore)
+    .renderArea(true)
+    .xAxis().tickFormat(d3.timeFormat('%Y-%m'));
+    }
+
+    chartRender(lineChart, droughtGroup);
+
+
+   select.dimension(typeDim).group(typeDim.group()).numberVisible(10);
+   select.title(function (d){
+    return 'STATE: ' + d.key;
+})
+select.on('pretransition', function() {
+  select.select('option[value=""]').remove();
+})
+.filter("1. Any drought")
+   dc.renderAll();
+});
+
+</script>
+
+</div>
+</body>
+</html>
